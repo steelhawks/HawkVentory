@@ -8,6 +8,20 @@
     <title>HawkVentory — Team 2601</title>
   </head>
   <body class="bg-zinc-950 text-zinc-100 antialiased">
+    <script>
+      // GitHub Pages SPA fallback: restore the original path written by 404.html.
+      (function () {
+        var q = window.location.search;
+        if (q && q.indexOf('?p=') === 0) {
+          var parts = q.slice(1).split('&').reduce(function (acc, kv) {
+            var i = kv.indexOf('='); acc[kv.slice(0, i)] = kv.slice(i + 1); return acc;
+          }, {});
+          var path = (parts.p || '/').replace(/~~/g, '&');
+          var search = parts.q ? '?' + parts.q.replace(/~~/g, '&') : '';
+          window.history.replaceState(null, '', window.location.pathname.replace(/\/$/, '') + path + search + window.location.hash);
+        }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>HawkVentory</title>
+    <script>
+      // GitHub Pages SPA fallback: rewrite the requested path into a query param
+      // that index.html reads back into history.replaceState.
+      var seg = 1; // strip "/HawkVentory" prefix
+      var l = window.location;
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        l.pathname.split('/').slice(0, 1 + seg).join('/') + '/?p=/' +
+        l.pathname.split('/').slice(1 + seg).join('/').replace(/&/g, '~~') +
+        (l.search ? '&q=' + l.search.slice(1).replace(/&/g, '~~') : '') +
+        l.hash
+      );
+    </script>
+  </head>
+  <body></body>
+</html>
