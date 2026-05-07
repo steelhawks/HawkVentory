@@ -128,14 +128,26 @@ export default function Inventory() {
                   className={`block p-4 rounded-xl bg-zinc-900 border transition ${
                     it.in_use ? 'border-hawk-500/50 hover:border-hawk-400' : 'border-zinc-800 hover:border-hawk-400'
                   }`}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="font-semibold truncate flex items-center gap-2">
-                        {it.name}
+                  <div className="flex items-start gap-3">
+                    {it.photo_url ? (
+                      <img src={it.photo_url} alt="" loading="lazy"
+                        className="w-14 h-14 rounded-lg object-cover bg-zinc-950 shrink-0 border border-zinc-800" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-lg bg-zinc-950 border border-zinc-800 grid place-items-center shrink-0 text-zinc-700">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="w-6 h-6">
+                          <path d="M3 7h4l2-3h6l2 3h4v12H3z" /><circle cx="12" cy="13" r="4" />
+                        </svg>
                       </div>
-                      <div className="text-xs text-zinc-500 mt-0.5">{categoryLabel(it.category)}</div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="font-semibold truncate">{it.name}</div>
+                          <div className="text-xs text-zinc-500 mt-0.5">{categoryLabel(it.category)}</div>
+                        </div>
+                        <span className="shrink-0 text-sm font-mono px-2 py-0.5 rounded bg-zinc-800">×{it.quantity}</span>
+                      </div>
                     </div>
-                    <span className="shrink-0 text-sm font-mono px-2 py-0.5 rounded bg-zinc-800">×{it.quantity}</span>
                   </div>
                   <div className="text-xs text-zinc-400 mt-2 truncate">
                     📍 {locationPath(it.location_id, locations)}
