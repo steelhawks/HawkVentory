@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from './supabase'
+import { uid } from './uid'
 import type { Item, Location, Category, Bom, BomItem, BomColor, Profile, ItemPhoto, ItemStock } from './database.types'
 
 export const CATEGORIES: { value: Category; label: string }[] = [
@@ -29,7 +30,7 @@ export function useLocations() {
 
   useEffect(() => {
     const ch = supabase
-      .channel(`locations-${crypto.randomUUID()}`)
+      .channel(`locations-${uid()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'locations' }, refresh)
       .subscribe()
     return () => { supabase.removeChannel(ch) }
@@ -52,7 +53,7 @@ export function useItems() {
 
   useEffect(() => {
     const ch = supabase
-      .channel(`items-${crypto.randomUUID()}`)
+      .channel(`items-${uid()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, refresh)
       .subscribe()
     return () => { supabase.removeChannel(ch) }
@@ -113,7 +114,7 @@ export function useBoms() {
 
   useEffect(() => {
     const ch = supabase
-      .channel(`boms-${crypto.randomUUID()}`)
+      .channel(`boms-${uid()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'boms' }, refresh)
       .subscribe()
     return () => { supabase.removeChannel(ch) }
@@ -139,7 +140,7 @@ export function useBomItems(bomId: string | null) {
   useEffect(() => {
     if (!bomId) return
     const ch = supabase
-      .channel(`bom-items-${bomId}-${crypto.randomUUID()}`)
+      .channel(`bom-items-${bomId}-${uid()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bom_items', filter: `bom_id=eq.${bomId}` }, refresh)
       .subscribe()
     return () => { supabase.removeChannel(ch) }
@@ -164,7 +165,7 @@ export function useAllItemStocks() {
 
   useEffect(() => {
     const ch = supabase
-      .channel(`item-stocks-all-${crypto.randomUUID()}`)
+      .channel(`item-stocks-all-${uid()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'item_stocks' }, refresh)
       .subscribe()
     return () => { supabase.removeChannel(ch) }
@@ -190,7 +191,7 @@ export function useItemStocks(itemId: string | null) {
   useEffect(() => {
     if (!itemId) return
     const ch = supabase
-      .channel(`item-stocks-${itemId}-${crypto.randomUUID()}`)
+      .channel(`item-stocks-${itemId}-${uid()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'item_stocks', filter: `item_id=eq.${itemId}` }, refresh)
       .subscribe()
     return () => { supabase.removeChannel(ch) }
@@ -244,7 +245,7 @@ export function useItemPhotos(itemId: string | null) {
   useEffect(() => {
     if (!itemId) return
     const ch = supabase
-      .channel(`item-photos-${itemId}-${crypto.randomUUID()}`)
+      .channel(`item-photos-${itemId}-${uid()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'item_photos', filter: `item_id=eq.${itemId}` }, refresh)
       .subscribe()
     return () => { supabase.removeChannel(ch) }
@@ -269,7 +270,7 @@ export function useProfiles() {
 
   useEffect(() => {
     const ch = supabase
-      .channel(`profiles-${crypto.randomUUID()}`)
+      .channel(`profiles-${uid()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, refresh)
       .subscribe()
     return () => { supabase.removeChannel(ch) }
@@ -300,7 +301,7 @@ export function useAllBomItems() {
 
   useEffect(() => {
     const ch = supabase
-      .channel(`bom-items-all-${crypto.randomUUID()}`)
+      .channel(`bom-items-all-${uid()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bom_items' }, refresh)
       .subscribe()
     return () => { supabase.removeChannel(ch) }

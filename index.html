@@ -9,6 +9,13 @@
   </head>
   <body class="bg-zinc-950 text-zinc-100 antialiased">
     <script>
+      // Upgrade plain HTTP → HTTPS. crypto.subtle / crypto.randomUUID and other
+      // web APIs require a secure context, so HTTP URLs would otherwise break.
+      if (location.protocol === 'http:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+        location.replace('https:' + location.href.substring(location.protocol.length))
+      }
+    </script>
+    <script>
       // GitHub Pages SPA fallback: restore the original path written by 404.html.
       (function () {
         var q = window.location.search;

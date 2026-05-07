@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { uid } from './uid'
 
 const BUCKET = 'item-photos'
 const MAX_DIM = 1600
@@ -35,7 +36,7 @@ export async function resizeImage(file: File): Promise<Blob> {
 
 export async function uploadItemPhoto(file: File): Promise<string> {
   const blob = await resizeImage(file)
-  const id = crypto.randomUUID()
+  const id = uid()
   const path = `${id}.jpg`
   const { error } = await supabase.storage.from(BUCKET).upload(path, blob, {
     contentType: 'image/jpeg',

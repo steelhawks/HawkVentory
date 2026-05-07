@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useLocations, useItems, useItemPhotos, useItemStocks, CATEGORIES, locationPath } from '../lib/data'
 import { uploadItemPhoto, deleteItemPhoto } from '../lib/photo'
+import { uid } from '../lib/uid'
 import { CreatedBy } from '../components/CreatedBy'
 import type { Category, Item, ItemPhoto, ItemStock, Location } from '../lib/database.types'
 
@@ -28,7 +29,7 @@ export default function ItemEdit() {
   // Pending NEW stock rows (only used when creating a new item — saved on first insert).
   interface PendingStock { key: string; location_id: string | null; quantity: number; in_use: number }
   const [pendingStocks, setPendingStocks] = useState<PendingStock[]>([
-    { key: crypto.randomUUID(), location_id: null, quantity: 1, in_use: 0 },
+    { key: uid(), location_id: null, quantity: 1, in_use: 0 },
   ])
 
   // Pending uploads: chosen but not yet committed (uploaded on save).
@@ -51,7 +52,7 @@ export default function ItemEdit() {
     const files = Array.from(e.target.files ?? [])
     if (files.length === 0) return
     const additions: PendingPhoto[] = files.map((f) => ({
-      key: crypto.randomUUID(),
+      key: uid(),
       file: f,
       preview: URL.createObjectURL(f),
     }))
@@ -356,7 +357,7 @@ function PendingStocksEditor({
     setStocks(next)
   }
   function add() {
-    setStocks([...stocks, { key: crypto.randomUUID(), location_id: null, quantity: 1, in_use: 0 }])
+    setStocks([...stocks, { key: uid(), location_id: null, quantity: 1, in_use: 0 }])
   }
   function remove(idx: number) {
     setStocks(stocks.filter((_, i) => i !== idx))
