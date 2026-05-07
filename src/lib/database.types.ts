@@ -22,7 +22,8 @@ export interface Item {
   location_id: string | null
   notes: string | null
   photo_url: string | null
-  in_use: boolean
+  /** Number of units currently allocated (0 ≤ in_use ≤ quantity). */
+  in_use: number
   created_at: string
   updated_at: string
   created_by: string | null

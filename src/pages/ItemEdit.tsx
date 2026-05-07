@@ -18,7 +18,7 @@ export default function ItemEdit() {
   const existing = useMemo(() => items.find((i) => i.id === id), [items, id])
 
   const [form, setForm] = useState<Partial<Item>>({
-    name: '', category: 'tool', quantity: 1, location_id: null, notes: '', in_use: false, photo_url: null,
+    name: '', category: 'tool', quantity: 1, location_id: null, notes: '', in_use: 0, photo_url: null,
   })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -86,15 +86,18 @@ export default function ItemEdit() {
         photoUrl = await uploadItemPhoto(pendingFile)
       }
 
+      const quantity = Math.max(0, Number(form.quantity ?? 1))
+      const inUse = Math.max(0, Math.min(quantity, Number(form.in_use ?? 0)))
+
       if (isNew) {
         const { error } = await supabase.from('items').insert({
           name: form.name!.trim(),
           category: form.category as Category,
-          quantity: Number(form.quantity ?? 1),
+          quantity,
           location_id: form.location_id ?? null,
           notes: form.notes ?? null,
           photo_url: photoUrl,
-          in_use: !!form.in_use,
+          in_use: inUse,
           created_by: user?.id ?? null,
         })
         if (error) throw error
@@ -102,11 +105,11 @@ export default function ItemEdit() {
         const { error } = await supabase.from('items').update({
           name: form.name!.trim(),
           category: form.category as Category,
-          quantity: Number(form.quantity ?? 1),
+          quantity,
           location_id: form.location_id ?? null,
           notes: form.notes ?? null,
           photo_url: photoUrl,
-          in_use: !!form.in_use,
+          in_use: inUse,
         }).eq('id', id!)
         if (error) throw error
       }
@@ -176,20 +179,11 @@ export default function ItemEdit() {
           </select>
         </Field>
 
-        <label className="flex items-center gap-3 px-3 py-3 rounded-lg bg-zinc-900 border border-zinc-800 cursor-pointer">
-          <input type="checkbox" checked={!!form.in_use}
-            onChange={(e) => setForm({ ...form, in_use: e.target.checked })}
-            className="w-5 h-5 rounded border-zinc-700 bg-zinc-950 accent-hawk-500" />
-          <div className="flex-1">
-            <div className="font-medium">In use</div>
-            <div className="text-xs text-zinc-500">Currently installed on the robot or otherwise allocated</div>
-          </div>
-          {form.in_use && (
-            <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-hawk-500/20 text-hawk-300 border border-hawk-500/40">
-              Active
-            </span>
-          )}
-        </label>
+        <InUseStepper
+          inUse={Number(form.in_use ?? 0)}
+          quantity={Number(form.quantity ?? 1)}
+          onChange={(n) => setForm({ ...form, in_use: n })}
+        />
 
         <div>
           <div className="text-xs uppercase tracking-wide text-zinc-500 mb-1.5">Photo (optional)</div>
@@ -271,5 +265,50 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="block text-xs uppercase tracking-wide text-zinc-500 mb-1">{label}</span>
       {children}
     </label>
+  )
+}
+
+function InUseStepper({
+  inUse, quantity, onChange,
+}: { inUse: number; quantity: number; onChange: (n: number) => void }) {
+  const clamped = Math.max(0, Math.min(quantity, inUse))
+  const available = Math.max(0, quantity - clamped)
+  const fully = quantity > 0 && clamped === quantity
+  return (
+    <div className={`px-4 py-3 rounded-lg border transition ${
+      clamped === 0 ? 'bg-zinc-900 border-zinc-800'
+      : fully ? 'bg-hawk-500/10 border-hawk-500/40'
+      : 'bg-amber-500/5 border-amber-500/30'
+    }`}>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="font-medium">In use</div>
+          <div className="text-xs text-zinc-500">How many of the {quantity} are currently allocated</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => onChange(Math.max(0, clamped - 1))}
+            disabled={clamped <= 0}
+            className="w-8 h-8 rounded-full bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 text-lg font-bold grid place-items-center">−</button>
+          <input type="number" min={0} max={quantity} value={clamped}
+            onChange={(e) => onChange(Math.max(0, Math.min(quantity, Number(e.target.value))))}
+            className="w-12 text-center px-1 py-1 rounded bg-zinc-950 border border-zinc-800 font-mono" />
+          <button type="button" onClick={() => onChange(Math.min(quantity, clamped + 1))}
+            disabled={clamped >= quantity}
+            className="w-8 h-8 rounded-full bg-hawk-500/80 hover:bg-hawk-500 disabled:opacity-30 text-lg font-bold grid place-items-center">+</button>
+        </div>
+      </div>
+      <div className="mt-2 flex items-center gap-2 text-xs">
+        <span className={`px-2 py-0.5 rounded-full ${
+          clamped > 0 ? 'bg-hawk-500/20 text-hawk-300 border border-hawk-500/40' : 'bg-zinc-800 text-zinc-500'
+        }`}>
+          {clamped} in use
+        </span>
+        <span className={`px-2 py-0.5 rounded-full ${
+          available > 0 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-zinc-800 text-zinc-500'
+        }`}>
+          {available} available
+        </span>
+      </div>
+    </div>
   )
 }

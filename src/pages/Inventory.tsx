@@ -35,8 +35,9 @@ export default function Inventory() {
     return items.filter((it) => {
       if (cat !== 'all' && it.category !== cat) return false
       if (needle && !it.name.toLowerCase().includes(needle)) return false
-      if (useFilter === 'in_use' && !it.in_use) return false
-      if (useFilter === 'available' && it.in_use) return false
+      // "In use" = at least one unit allocated; "Available" = at least one not allocated.
+      if (useFilter === 'in_use' && it.in_use <= 0) return false
+      if (useFilter === 'available' && it.in_use >= it.quantity) return false
       if (bomFilter !== 'all') {
         const bomsForItem = itemBoms.get(it.id) ?? []
         if (bomFilter === 'unassigned') { if (bomsForItem.length > 0) return false }
@@ -46,8 +47,10 @@ export default function Inventory() {
     })
   }, [items, q, cat, useFilter, bomFilter, itemBoms])
 
-  async function toggleInUse(id: string, current: boolean) {
-    const { error } = await supabase.from('items').update({ in_use: !current }).eq('id', id)
+  async function adjustInUse(id: string, current: number, qty: number, delta: number) {
+    const next = Math.max(0, Math.min(qty, current + delta))
+    if (next === current) return
+    const { error } = await supabase.from('items').update({ in_use: next }).eq('id', id)
     if (error) alert(error.message)
     else refreshItems()
   }
@@ -126,8 +129,10 @@ export default function Inventory() {
               <li key={it.id} className="relative group rounded-3xl">
                 <Link to={`/item/${it.id}`}
                   className={`relative block aspect-[4/3] rounded-3xl overflow-hidden isolate border transition shadow-lg shadow-black/30 ${
-                    it.in_use
+                    it.in_use >= it.quantity && it.quantity > 0
                       ? 'border-hawk-500/60 hover:border-hawk-400 ring-1 ring-hawk-500/40'
+                      : it.in_use > 0
+                      ? 'border-amber-500/40 hover:border-hawk-400 ring-1 ring-amber-500/20'
                       : 'border-zinc-800 hover:border-hawk-400'
                   }`}>
                   {/* Background: photo or stylized fallback */}
@@ -156,9 +161,11 @@ export default function Inventory() {
                   </span>
 
                   {/* In-use ribbon (top-left, when active) */}
-                  {it.in_use && (
-                    <span className="absolute top-2 left-2 text-[10px] uppercase tracking-wider font-bold px-2.5 py-0.5 rounded-full bg-hawk-500 text-white shadow-lg shadow-hawk-900/60">
-                      In use
+                  {it.in_use > 0 && (
+                    <span className={`absolute top-2 left-2 text-[10px] uppercase tracking-wider font-bold px-2.5 py-0.5 rounded-full text-white shadow-lg ${
+                      it.in_use >= it.quantity ? 'bg-hawk-500 shadow-hawk-900/60' : 'bg-amber-500 shadow-amber-900/60'
+                    }`}>
+                      {it.in_use}/{it.quantity} in use
                     </span>
                   )}
 
@@ -188,20 +195,29 @@ export default function Inventory() {
                   </div>
                 </Link>
 
-                {/* Quick in-use toggle — bottom-right corner */}
-                <button
-                  onClick={(e) => { e.preventDefault(); toggleInUse(it.id, it.in_use) }}
-                  title={it.in_use ? 'Mark as available' : 'Mark as in use'}
-                  className={`absolute bottom-2 right-2 w-8 h-8 rounded-full grid place-items-center transition backdrop-blur-sm border ${
-                    it.in_use
-                      ? 'bg-hawk-500/90 text-white border-hawk-400 hover:bg-hawk-400'
-                      : 'bg-black/50 text-white/70 border-white/10 hover:bg-black/70 hover:text-white opacity-0 group-hover:opacity-100 focus:opacity-100'
-                  }`}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} className="w-4 h-4">
-                    <path d="M5 13l4 4L19 7" />
-                  </svg>
-                </button>
+                {/* Quick in-use stepper — bottom-right corner */}
+                <div className={`absolute bottom-2 right-2 flex items-center gap-1 transition ${
+                  it.in_use > 0 ? '' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'
+                }`}>
+                  <button
+                    onClick={(e) => { e.preventDefault(); adjustInUse(it.id, it.in_use, it.quantity, -1) }}
+                    disabled={it.in_use <= 0}
+                    title="Mark one as available"
+                    className="w-7 h-7 rounded-full grid place-items-center backdrop-blur-sm border bg-black/60 text-white/90 border-white/10 hover:bg-black/80 disabled:opacity-30">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} className="w-3.5 h-3.5">
+                      <path d="M5 12h14" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={(e) => { e.preventDefault(); adjustInUse(it.id, it.in_use, it.quantity, +1) }}
+                    disabled={it.in_use >= it.quantity}
+                    title="Mark one as in use"
+                    className="w-7 h-7 rounded-full grid place-items-center backdrop-blur-sm border bg-hawk-500/90 text-white border-hawk-400 hover:bg-hawk-400 disabled:opacity-30">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} className="w-3.5 h-3.5">
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                  </button>
+                </div>
               </li>
             )
           })}

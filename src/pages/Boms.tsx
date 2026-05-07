@@ -23,7 +23,7 @@ export default function Boms() {
       const it = bi.item_id ? itemById.get(bi.item_id) : undefined
       if (it) {
         s.inStock += it.quantity
-        if (it.in_use) s.inUse += 1
+        s.inUse += it.in_use   // sum the unit count, not just "is any in use"
       }
     }
     return m

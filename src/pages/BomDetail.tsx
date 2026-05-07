@@ -32,22 +32,23 @@ export default function BomDetail() {
       .map((bi) => ({ bi, item: bi.item_id ? itemById.get(bi.item_id) ?? null : null }))
       .filter(({ item }) => {
         if (showInUseOnly === 'all') return true
-        if (!item) return showInUseOnly === 'available'  // free-text lines have no in_use
-        return showInUseOnly === 'in_use' ? item.in_use : !item.in_use
+        if (!item) return showInUseOnly === 'available'  // wishlist lines never count as "in use"
+        return showInUseOnly === 'in_use' ? item.in_use > 0 : item.in_use < item.quantity
       })
   }, [bomItems, itemById, showInUseOnly])
 
   const totals = useMemo(() => {
-    let needed = 0, stock = 0, inUse = 0, missing = 0
+    let needed = 0, stock = 0, inUse = 0, available = 0, missing = 0
     for (const bi of bomItems) {
       needed += bi.quantity_needed
       const it = bi.item_id ? itemById.get(bi.item_id) : null
       if (!it) { missing += bi.quantity_needed; continue }
       stock += it.quantity
-      if (it.in_use) inUse += 1
+      inUse += it.in_use
+      available += Math.max(0, it.quantity - it.in_use)
       if (it.quantity < bi.quantity_needed) missing += bi.quantity_needed - it.quantity
     }
-    return { needed, stock, inUse, missing }
+    return { needed, stock, inUse, available, missing }
   }, [bomItems, itemById])
 
   if (!bom) {
@@ -90,11 +91,12 @@ export default function BomDetail() {
       </div>
 
       {/* Totals */}
-      <div className="grid grid-cols-4 gap-2 mb-4">
-        <BigStat label="Lines"   value={bomItems.length} />
-        <BigStat label="Needed"  value={totals.needed} />
-        <BigStat label="In use"  value={totals.inUse}  tone={totals.inUse > 0 ? 'crimson' : 'neutral'} />
-        <BigStat label="Missing" value={totals.missing} tone={totals.missing > 0 ? 'crimson' : 'emerald'} />
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
+        <BigStat label="Lines"     value={bomItems.length} />
+        <BigStat label="Needed"    value={totals.needed} />
+        <BigStat label="In use"    value={totals.inUse}    tone={totals.inUse > 0 ? 'crimson' : 'neutral'} />
+        <BigStat label="Available" value={totals.available} tone={totals.available > 0 ? 'emerald' : 'neutral'} />
+        <BigStat label="Missing"   value={totals.missing}  tone={totals.missing > 0 ? 'crimson' : 'emerald'} />
       </div>
 
       {/* Filter bar */}
@@ -161,9 +163,11 @@ function Line({
   onLinesChanged: () => void
   onItemsChanged: () => void
 }) {
+  const available = item ? Math.max(0, item.quantity - item.in_use) : 0
   const shortfall = item ? Math.max(0, bi.quantity_needed - item.quantity) : bi.quantity_needed
   const status = !item ? 'missing'
-                : item.in_use ? 'in_use'
+                : item.in_use >= item.quantity && item.quantity > 0 ? 'in_use'
+                : item.in_use > 0 ? 'partial'
                 : item.quantity >= bi.quantity_needed ? 'ok'
                 : 'low'
 
@@ -174,9 +178,11 @@ function Line({
     else onLinesChanged()
   }
 
-  async function toggleInUse() {
+  async function adjustInUse(delta: number) {
     if (!item) return
-    const { error } = await supabase.from('items').update({ in_use: !item.in_use }).eq('id', item.id)
+    const next = Math.max(0, Math.min(item.quantity, item.in_use + delta))
+    if (next === item.in_use) return
+    const { error } = await supabase.from('items').update({ in_use: next }).eq('id', item.id)
     if (error) alert(error.message)
     else onItemsChanged()
   }
@@ -187,6 +193,7 @@ function Line({
         <span className={`mt-1 w-2.5 h-2.5 rounded-full shrink-0 ${
           status === 'ok'      ? 'bg-emerald-400' :
           status === 'in_use'  ? 'bg-hawk-400' :
+          status === 'partial' ? 'bg-amber-400' :
           status === 'low'     ? 'bg-amber-400' :
                                  'bg-red-400'
         }`} />
@@ -197,13 +204,17 @@ function Line({
             ) : (
               <span className="font-semibold text-zinc-300">{bi.label}</span>
             )}
-            {item?.in_use && (
-              <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-hawk-500/20 text-hawk-300 border border-hawk-500/40">
-                In use
+            {item && item.in_use > 0 && (
+              <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${
+                item.in_use >= item.quantity
+                  ? 'bg-hawk-500/20 text-hawk-300 border-hawk-500/40'
+                  : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+              }`}>
+                {item.in_use}/{item.quantity} in use
               </span>
             )}
             {!item && (
-              <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 border border-red-500/30">
+              <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/30">
                 Not in inventory
               </span>
             )}
@@ -229,16 +240,18 @@ function Line({
           )}
         </div>
       </div>
-      <div className="flex gap-2 mt-2 pl-5">
+      <div className="flex items-center gap-2 mt-2 pl-5">
         {item && (
-          <button onClick={toggleInUse}
-            className={`text-xs px-2 py-1 rounded border transition ${
-              item.in_use
-                ? 'bg-hawk-500/20 text-hawk-300 border-hawk-500/40 hover:bg-hawk-500/30'
-                : 'border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:border-zinc-700'
-            }`}>
-            {item.in_use ? '✓ Marked in use' : 'Mark in use'}
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => adjustInUse(-1)} disabled={item.in_use <= 0}
+              className="w-7 h-7 rounded-full bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 text-sm font-bold grid place-items-center">−</button>
+            <span className="text-xs font-mono text-zinc-300 min-w-[3rem] text-center">
+              {item.in_use} <span className="text-zinc-600">/</span> {item.quantity}
+            </span>
+            <button onClick={() => adjustInUse(+1)} disabled={item.in_use >= item.quantity}
+              className="w-7 h-7 rounded-full bg-hawk-500/80 hover:bg-hawk-500 disabled:opacity-30 text-sm font-bold text-white grid place-items-center">+</button>
+            <span className="text-[10px] text-zinc-500 ml-1">{available} avail</span>
+          </div>
         )}
         <button onClick={remove} className="text-xs text-red-400 hover:text-red-300 ml-auto">Remove</button>
       </div>
@@ -379,7 +392,13 @@ function AddLineModal({ bomId, items, onSaved, onClose }: { bomId: string; items
                       <span className="block font-medium truncate">{i.name}</span>
                       <span className="block text-xs text-zinc-500">{categoryLabel(i.category)} · stock {i.quantity}</span>
                     </span>
-                    {i.in_use && <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-hawk-500/20 text-hawk-300 border border-hawk-500/40">In use</span>}
+                    {i.in_use > 0 && (
+                      <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${
+                        i.in_use >= i.quantity
+                          ? 'bg-hawk-500/20 text-hawk-300 border-hawk-500/40'
+                          : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                      }`}>{i.in_use}/{i.quantity} in use</span>
+                    )}
                   </button>
                 ))}
               </div>
