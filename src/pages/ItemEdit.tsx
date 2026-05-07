@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent 
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
-import { useLocations, useItems, CATEGORIES, locationPath } from '../lib/data'
+import { useLocations, useItems, useItemPhotos, CATEGORIES, locationPath } from '../lib/data'
 import { uploadItemPhoto, deleteItemPhoto } from '../lib/photo'
 import { CreatedBy } from '../components/CreatedBy'
-import type { Category, Item } from '../lib/database.types'
+import type { Category, Item, ItemPhoto } from '../lib/database.types'
 
 export default function ItemEdit() {
   const { id } = useParams()
@@ -16,6 +16,7 @@ export default function ItemEdit() {
   const { locations } = useLocations()
 
   const existing = useMemo(() => items.find((i) => i.id === id), [items, id])
+  const { photos: existingPhotos } = useItemPhotos(isNew ? null : (id ?? null))
 
   const [form, setForm] = useState<Partial<Item>>({
     name: '', category: 'tool', quantity: 1, location_id: null, notes: '', in_use: 0, photo_url: null,
@@ -23,9 +24,9 @@ export default function ItemEdit() {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
-  // Photo state: pendingFile = newly chosen but not yet uploaded; pendingPreview = local object URL
-  const [pendingFile, setPendingFile] = useState<File | null>(null)
-  const [pendingPreview, setPendingPreview] = useState<string | null>(null)
+  // Pending uploads: chosen but not yet committed (uploaded on save).
+  interface PendingPhoto { key: string; file: File; preview: string }
+  const [pending, setPending] = useState<PendingPhoto[]>([])
   const [photoBusy, setPhotoBusy] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -33,37 +34,62 @@ export default function ItemEdit() {
     if (existing) setForm(existing)
   }, [existing])
 
+  // Revoke preview object URLs on unmount to avoid leaks.
   useEffect(() => {
-    return () => { if (pendingPreview) URL.revokeObjectURL(pendingPreview) }
-  }, [pendingPreview])
+    return () => { pending.forEach((p) => URL.revokeObjectURL(p.preview)) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  function onPickFile(e: ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0] ?? null
-    if (!f) return
-    if (pendingPreview) URL.revokeObjectURL(pendingPreview)
-    setPendingFile(f)
-    setPendingPreview(URL.createObjectURL(f))
-    e.target.value = ''  // allow re-picking the same file
+  function onPickFiles(e: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    if (files.length === 0) return
+    const additions: PendingPhoto[] = files.map((f) => ({
+      key: crypto.randomUUID(),
+      file: f,
+      preview: URL.createObjectURL(f),
+    }))
+    setPending((p) => [...p, ...additions])
+    e.target.value = ''
   }
 
-  function clearPending() {
-    if (pendingPreview) URL.revokeObjectURL(pendingPreview)
-    setPendingFile(null)
-    setPendingPreview(null)
+  function discardPending(key: string) {
+    setPending((p) => {
+      const target = p.find((x) => x.key === key)
+      if (target) URL.revokeObjectURL(target.preview)
+      return p.filter((x) => x.key !== key)
+    })
   }
 
-  async function removeExistingPhoto() {
-    if (!form.photo_url) return
+  async function deleteExistingPhoto(photo: ItemPhoto) {
+    if (!confirm('Delete this photo?')) return
     setPhotoBusy(true)
     try {
-      await deleteItemPhoto(form.photo_url)
-      if (!isNew && id) {
-        await supabase.from('items').update({ photo_url: null }).eq('id', id)
-      }
-      setForm((f) => ({ ...f, photo_url: null }))
+      const { error } = await supabase.from('item_photos').delete().eq('id', photo.id)
+      if (error) throw error
+      await deleteItemPhoto(photo.url)
     } catch (e: unknown) {
       const msg = typeof e === 'object' && e && 'message' in e ? String((e as { message: unknown }).message) : 'Failed to remove'
       setErr(msg)
+    } finally {
+      setPhotoBusy(false)
+    }
+  }
+
+  /** Move a photo to sort_order = 0 (and bump everything else). The trigger updates items.photo_url. */
+  async function makePrimary(photo: ItemPhoto) {
+    setPhotoBusy(true)
+    try {
+      const others = existingPhotos.filter((p) => p.id !== photo.id)
+      // Two passes to avoid violating any future unique(item_id, sort_order) — write target last.
+      for (let i = 0; i < others.length; i++) {
+        const target = i + 1
+        if (others[i].sort_order !== target) {
+          await supabase.from('item_photos').update({ sort_order: target }).eq('id', others[i].id)
+        }
+      }
+      if (photo.sort_order !== 0) {
+        await supabase.from('item_photos').update({ sort_order: 0 }).eq('id', photo.id)
+      }
     } finally {
       setPhotoBusy(false)
     }
@@ -79,28 +105,23 @@ export default function ItemEdit() {
     e.preventDefault()
     setBusy(true); setErr(null)
     try {
-      // Upload new photo first (if any), so we save the resulting URL on the row.
-      let photoUrl: string | null = form.photo_url ?? null
-      const oldPhotoToDelete = pendingFile && existing?.photo_url ? existing.photo_url : null
-      if (pendingFile) {
-        photoUrl = await uploadItemPhoto(pendingFile)
-      }
-
       const quantity = Math.max(0, Number(form.quantity ?? 1))
       const inUse = Math.max(0, Math.min(quantity, Number(form.in_use ?? 0)))
 
+      // Save (or insert) the item first — we need its id to attach photos.
+      let itemId = id ?? null
       if (isNew) {
-        const { error } = await supabase.from('items').insert({
+        const { data, error } = await supabase.from('items').insert({
           name: form.name!.trim(),
           category: form.category as Category,
           quantity,
           location_id: form.location_id ?? null,
           notes: form.notes ?? null,
-          photo_url: photoUrl,
           in_use: inUse,
           created_by: user?.id ?? null,
-        })
+        }).select('id').single()
         if (error) throw error
+        itemId = data.id
       } else {
         const { error } = await supabase.from('items').update({
           name: form.name!.trim(),
@@ -108,14 +129,26 @@ export default function ItemEdit() {
           quantity,
           location_id: form.location_id ?? null,
           notes: form.notes ?? null,
-          photo_url: photoUrl,
           in_use: inUse,
         }).eq('id', id!)
         if (error) throw error
       }
 
-      // Best-effort: remove the previous photo from storage now that the row references the new one.
-      if (oldPhotoToDelete) await deleteItemPhoto(oldPhotoToDelete)
+      // Upload all pending photos and append to the gallery.
+      if (pending.length > 0 && itemId) {
+        const lastOrder = existingPhotos.length > 0 ? existingPhotos[existingPhotos.length - 1].sort_order : -1
+        const startOrder = lastOrder + 1
+        for (let i = 0; i < pending.length; i++) {
+          const url = await uploadItemPhoto(pending[i].file)
+          const { error } = await supabase.from('item_photos').insert({
+            item_id: itemId,
+            url,
+            sort_order: startOrder + i,
+            created_by: user?.id ?? null,
+          })
+          if (error) throw error
+        }
+      }
 
       nav('/')
     } catch (e: unknown) {
@@ -132,11 +165,12 @@ export default function ItemEdit() {
     if (!id || isNew) return
     if (!confirm(`Delete "${existing?.name}"? This can't be undone.`)) return
     setBusy(true)
-    const photoToClean = existing?.photo_url ?? null
+    const urlsToClean = existingPhotos.map((p) => p.url)
     const { error } = await supabase.from('items').delete().eq('id', id)
     setBusy(false)
     if (error) { setErr(error.message); return }
-    if (photoToClean) await deleteItemPhoto(photoToClean)
+    // Storage cleanup is best-effort — DB rows are already gone via cascade.
+    for (const u of urlsToClean) await deleteItemPhoto(u)
     nav('/')
   }
 
@@ -186,49 +220,73 @@ export default function ItemEdit() {
         />
 
         <div>
-          <div className="text-xs uppercase tracking-wide text-zinc-500 mb-1.5">Photo (optional)</div>
-          <input ref={fileInputRef} type="file" accept="image/*" capture="environment"
-            onChange={onPickFile} className="hidden" />
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="text-xs uppercase tracking-wide text-zinc-500">Photos (optional)</div>
+            {(existingPhotos.length + pending.length) > 0 && (
+              <div className="text-[10px] text-zinc-600">{existingPhotos.length + pending.length} total · first is primary</div>
+            )}
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*" multiple
+            onChange={onPickFiles} className="hidden" />
 
-          {pendingPreview ? (
-            <div className="relative rounded-xl overflow-hidden border border-hawk-500/40 bg-zinc-900">
-              <img src={pendingPreview} alt="New" className="w-full max-h-72 object-contain bg-black/40" />
-              <div className="absolute top-2 right-2 flex gap-2">
-                <button type="button" onClick={() => fileInputRef.current?.click()}
-                  className="px-3 py-1.5 text-xs rounded bg-zinc-950/80 backdrop-blur border border-zinc-700 text-zinc-100">
-                  Replace
-                </button>
-                <button type="button" onClick={clearPending}
-                  className="px-3 py-1.5 text-xs rounded bg-red-500/80 text-white">
-                  Discard
-                </button>
-              </div>
-              <div className="absolute bottom-2 left-2 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-hawk-500/80 text-white">
-                New — saves with item
-              </div>
-            </div>
-          ) : form.photo_url ? (
-            <div className="relative rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900">
-              <img src={form.photo_url} alt={form.name ?? ''} className="w-full max-h-72 object-contain bg-black/40" />
-              <div className="absolute top-2 right-2 flex gap-2">
-                <button type="button" onClick={() => fileInputRef.current?.click()}
-                  className="px-3 py-1.5 text-xs rounded bg-zinc-950/80 backdrop-blur border border-zinc-700 text-zinc-100">
-                  Replace
-                </button>
-                <button type="button" onClick={removeExistingPhoto} disabled={photoBusy}
-                  className="px-3 py-1.5 text-xs rounded bg-red-500/80 text-white disabled:opacity-50">
-                  Remove
-                </button>
-              </div>
-            </div>
-          ) : (
+          {existingPhotos.length === 0 && pending.length === 0 ? (
             <button type="button" onClick={() => fileInputRef.current?.click()}
-              className="w-full flex items-center justify-center gap-2 py-6 rounded-xl border-2 border-dashed border-zinc-800 hover:border-hawk-400 hover:bg-zinc-900/50 text-zinc-400 hover:text-zinc-100 transition">
+              className="w-full flex items-center justify-center gap-2 py-6 rounded-2xl border-2 border-dashed border-zinc-800 hover:border-hawk-400 hover:bg-zinc-900/50 text-zinc-400 hover:text-zinc-100 transition">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-6 h-6">
                 <path d="M3 7h4l2-3h6l2 3h4v12H3z" /><circle cx="12" cy="13" r="4" />
               </svg>
-              <span className="text-sm">Take or choose a photo</span>
+              <span className="text-sm">Take or choose photos</span>
             </button>
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {existingPhotos.map((p, idx) => (
+                <div key={p.id}
+                  className={`relative aspect-square rounded-2xl overflow-hidden border bg-zinc-900 group/photo ${
+                    idx === 0 ? 'border-hawk-500/50 ring-1 ring-hawk-500/30' : 'border-zinc-800'
+                  }`}>
+                  <img src={p.url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                  {idx === 0 && (
+                    <span className="absolute top-1.5 left-1.5 text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-full bg-hawk-500 text-white">
+                      Primary
+                    </span>
+                  )}
+                  <div className="absolute inset-0 bg-black/0 group-hover/photo:bg-black/40 transition flex items-end justify-end p-1.5 gap-1 opacity-0 group-hover/photo:opacity-100 focus-within:opacity-100">
+                    {idx !== 0 && (
+                      <button type="button" onClick={() => makePrimary(p)} disabled={photoBusy}
+                        title="Make primary"
+                        className="px-2 py-1 text-[10px] rounded-full bg-zinc-950/80 backdrop-blur border border-zinc-700 text-zinc-100 hover:border-hawk-400">
+                        ★
+                      </button>
+                    )}
+                    <button type="button" onClick={() => deleteExistingPhoto(p)} disabled={photoBusy}
+                      title="Delete photo"
+                      className="px-2 py-1 text-[10px] rounded-full bg-red-500/90 text-white">
+                      ×
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {pending.map((p) => (
+                <div key={p.key} className="relative aspect-square rounded-2xl overflow-hidden border border-hawk-500/40 bg-zinc-900">
+                  <img src={p.preview} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                  <span className="absolute top-1.5 left-1.5 text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-full bg-hawk-500/90 text-white">
+                    New
+                  </span>
+                  <button type="button" onClick={() => discardPending(p.key)}
+                    title="Discard"
+                    className="absolute bottom-1.5 right-1.5 px-2 py-1 text-[10px] rounded-full bg-red-500/90 text-white">
+                    ×
+                  </button>
+                </div>
+              ))}
+              <button type="button" onClick={() => fileInputRef.current?.click()}
+                className="aspect-square rounded-2xl border-2 border-dashed border-zinc-800 hover:border-hawk-400 hover:bg-zinc-900/50 text-zinc-500 hover:text-zinc-200 transition flex flex-col items-center justify-center gap-1">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-7 h-7">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                <span className="text-[10px] uppercase tracking-wider">Add</span>
+              </button>
+            </div>
           )}
         </div>
 

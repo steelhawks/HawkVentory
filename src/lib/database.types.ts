@@ -61,3 +61,12 @@ export interface Profile {
   updated_at: string
 }
 
+export interface ItemPhoto {
+  id: string
+  item_id: string
+  url: string
+  sort_order: number
+  created_at: string
+  created_by: string | null
+}
+

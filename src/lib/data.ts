@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from './supabase'
-import type { Item, Location, Category, Bom, BomItem, BomColor, Profile } from './database.types'
+import type { Item, Location, Category, Bom, BomItem, BomColor, Profile, ItemPhoto } from './database.types'
 
 export const CATEGORIES: { value: Category; label: string }[] = [
   { value: 'tool',        label: 'Tool' },
@@ -146,6 +146,34 @@ export function useBomItems(bomId: string | null) {
   }, [bomId, refresh])
 
   return { bomItems, loading, refresh }
+}
+
+/* --------------------------- Item photos --------------------------- */
+
+export function useItemPhotos(itemId: string | null) {
+  const [photos, setPhotos] = useState<ItemPhoto[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const refresh = useCallback(async () => {
+    if (!itemId) { setPhotos([]); setLoading(false); return }
+    const { data, error } = await supabase
+      .from('item_photos').select('*').eq('item_id', itemId).order('sort_order').order('created_at')
+    if (!error && data) setPhotos(data)
+    setLoading(false)
+  }, [itemId])
+
+  useEffect(() => { refresh() }, [refresh])
+
+  useEffect(() => {
+    if (!itemId) return
+    const ch = supabase
+      .channel(`item-photos-${itemId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'item_photos', filter: `item_id=eq.${itemId}` }, refresh)
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [itemId, refresh])
+
+  return { photos, loading, refresh }
 }
 
 /* ------------------------------ Profiles ------------------------------- */
