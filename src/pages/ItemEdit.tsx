@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { useLocations, useItems, CATEGORIES, locationPath } from '../lib/data'
 import { uploadItemPhoto, deleteItemPhoto } from '../lib/photo'
+import { CreatedBy } from '../components/CreatedBy'
 import type { Category, Item } from '../lib/database.types'
 
 export default function ItemEdit() {
@@ -139,7 +140,11 @@ export default function ItemEdit() {
   return (
     <div className="px-4 md:px-6 py-4 md:py-6 max-w-2xl">
       <button onClick={() => nav(-1)} className="text-sm text-zinc-400 mb-3">← Back</button>
-      <h1 className="text-2xl md:text-3xl font-bold mb-4">{isNew ? 'New item' : 'Edit item'}</h1>
+      <h1 className="text-2xl md:text-3xl font-bold">{isNew ? 'New item' : 'Edit item'}</h1>
+      {!isNew && existing && (
+        <div className="mb-4 mt-1"><CreatedBy userId={existing.created_by ?? null} at={existing.created_at} /></div>
+      )}
+      {isNew && <div className="mb-4" />}
 
       <form onSubmit={save} className="space-y-3">
         <Field label="Name">

@@ -1,6 +1,8 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/auth'
 import { useLocations, locationPath } from '../lib/data'
+import { CreatedBy } from '../components/CreatedBy'
 import type { Location } from '../lib/database.types'
 
 /**
@@ -95,6 +97,7 @@ function LocationForm({
   location, locations, onClose,
 }: { location: Location | null; locations: Location[]; onClose: () => void }) {
   const isNew = !location
+  const { user } = useAuth()
   const [name, setName] = useState(location?.name ?? '')
   const [parentId, setParentId] = useState<string | ''>(location?.parent_id ?? '')
   const [mapX, setMapX] = useState<string>(location?.map_x?.toString() ?? '')
@@ -107,7 +110,7 @@ function LocationForm({
   async function save(e: FormEvent) {
     e.preventDefault()
     setBusy(true); setErr(null)
-    const payload = {
+    const base = {
       name: name.trim(),
       parent_id: parentId || null,
       map_x: isTopLevel && mapX !== '' ? Number(mapX) : null,
@@ -115,8 +118,8 @@ function LocationForm({
       notes: null,
     }
     const { error } = isNew
-      ? await supabase.from('locations').insert(payload)
-      : await supabase.from('locations').update(payload).eq('id', location!.id)
+      ? await supabase.from('locations').insert({ ...base, created_by: user?.id ?? null })
+      : await supabase.from('locations').update(base).eq('id', location!.id)
     setBusy(false)
     if (error) setErr(error.message)
     else onClose()
@@ -153,7 +156,11 @@ function LocationForm({
       onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()}
         className="w-full md:max-w-md bg-zinc-950 border border-zinc-800 rounded-t-2xl md:rounded-2xl p-5">
-        <h2 className="text-lg font-bold mb-3">{isNew ? 'New place' : 'Edit place'}</h2>
+        <h2 className="text-lg font-bold">{isNew ? 'New place' : 'Edit place'}</h2>
+        {!isNew && location && (
+          <div className="mb-3 mt-1"><CreatedBy userId={location.created_by ?? null} at={location.created_at} /></div>
+        )}
+        {isNew && <div className="mb-3" />}
         <form onSubmit={save} className="space-y-3">
           <Field label="Name">
             <input required value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="e.g. Closet, Shelf 2, Bin A" />

@@ -1,10 +1,12 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/auth'
 import {
-  useBoms, useBomItems, useItems, useLocations,
-  CATEGORIES, BOM_COLORS, bomColorChip, categoryLabel, locationPath,
+  useBoms, useBomItems, useItems, useLocations, useProfiles,
+  CATEGORIES, BOM_COLORS, bomColorChip, categoryLabel, locationPath, profileLabel,
 } from '../lib/data'
+import { CreatedBy } from '../components/CreatedBy'
 import type { Bom, BomColor, BomItem, Item } from '../lib/database.types'
 
 export default function BomDetail() {
@@ -14,6 +16,7 @@ export default function BomDetail() {
   const { bomItems, refresh: refreshLines } = useBomItems(id ?? null)
   const { items, refresh: refreshItems } = useItems()
   const { locations } = useLocations()
+  const { profiles } = useProfiles()
 
   const bom = useMemo(() => boms.find((b) => b.id === id) ?? null, [boms, id])
   const itemById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items])
@@ -76,6 +79,7 @@ export default function BomDetail() {
             </span>
           </div>
           {bom.description && <p className="text-sm text-zinc-400 mt-1">{bom.description}</p>}
+          <div className="mt-1.5"><CreatedBy userId={bom.created_by ?? null} at={bom.created_at} verb="Created" /></div>
         </div>
         <div className="flex gap-2 shrink-0">
           <button onClick={() => setEditing(true)}
@@ -122,6 +126,7 @@ export default function BomDetail() {
           {lines.map(({ bi, item }) => (
             <Line key={bi.id} bi={bi} item={item}
               locationName={item ? locationPath(item.location_id, locations) : ''}
+              addedBy={profileLabel(profiles, bi.created_by)}
               onLinesChanged={refreshLines}
               onItemsChanged={refreshItems} />
           ))}
@@ -147,11 +152,12 @@ function BigStat({ label, value, tone = 'neutral' }: { label: string; value: num
 }
 
 function Line({
-  bi, item, locationName, onLinesChanged, onItemsChanged,
+  bi, item, locationName, addedBy, onLinesChanged, onItemsChanged,
 }: {
   bi: BomItem
   item: Item | null
   locationName: string
+  addedBy: string
   onLinesChanged: () => void
   onItemsChanged: () => void
 }) {
@@ -206,6 +212,7 @@ function Line({
             {item && <span>{categoryLabel(item.category)}</span>}
             {item && locationName && <span>📍 {locationName}</span>}
             {bi.notes && <span className="italic">{bi.notes}</span>}
+            <span>added by <span className="text-zinc-400">{addedBy}</span></span>
           </div>
         </div>
         <div className="text-right shrink-0">
@@ -291,6 +298,7 @@ function EditBomModal({ bom, onSaved, onClose }: { bom: Bom; onSaved: () => void
 }
 
 function AddLineModal({ bomId, items, onSaved, onClose }: { bomId: string; items: Item[]; onSaved: () => void; onClose: () => void }) {
+  const { user } = useAuth()
   const [mode, setMode] = useState<'inventory' | 'wishlist'>('inventory')
   const [itemId, setItemId] = useState<string>('')
   const [label, setLabel] = useState('')
@@ -319,10 +327,11 @@ function AddLineModal({ bomId, items, onSaved, onClose }: { bomId: string; items
       label: string | null
       quantity_needed: number
       notes: string | null
+      created_by: string | null
     } =
       mode === 'inventory'
-        ? { bom_id: bomId, item_id: itemId, label: null, quantity_needed: qty, notes: notes.trim() || null }
-        : { bom_id: bomId, item_id: null, label: label.trim(), quantity_needed: qty, notes: notes.trim() || null }
+        ? { bom_id: bomId, item_id: itemId, label: null, quantity_needed: qty, notes: notes.trim() || null, created_by: user?.id ?? null }
+        : { bom_id: bomId, item_id: null, label: label.trim(), quantity_needed: qty, notes: notes.trim() || null, created_by: user?.id ?? null }
     const { error } = await supabase.from('bom_items').insert(payload)
     setBusy(false)
     if (error) setErr(error.message)

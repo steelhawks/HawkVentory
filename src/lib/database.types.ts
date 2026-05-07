@@ -11,6 +11,7 @@ export interface Location {
   map_y: number | null
   notes: string | null
   created_at: string
+  created_by: string | null
 }
 
 export interface Item {
@@ -48,5 +49,14 @@ export interface BomItem {
   notes: string | null
   sort_order: number
   created_at: string
+  created_by: string | null
+}
+
+export interface Profile {
+  id: string
+  email: string | null
+  display_name: string | null
+  created_at: string
+  updated_at: string
 }
 

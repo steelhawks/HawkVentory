@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from './supabase'
-import type { Item, Location, Category, Bom, BomItem, BomColor } from './database.types'
+import type { Item, Location, Category, Bom, BomItem, BomColor, Profile } from './database.types'
 
 export const CATEGORIES: { value: Category; label: string }[] = [
   { value: 'tool',        label: 'Tool' },
@@ -146,6 +146,38 @@ export function useBomItems(bomId: string | null) {
   }, [bomId, refresh])
 
   return { bomItems, loading, refresh }
+}
+
+/* ------------------------------ Profiles ------------------------------- */
+
+export function useProfiles() {
+  const [profiles, setProfiles] = useState<Map<string, Profile>>(new Map())
+  const [loading, setLoading] = useState(true)
+
+  const refresh = useCallback(async () => {
+    const { data, error } = await supabase.from('profiles').select('*')
+    if (!error && data) setProfiles(new Map(data.map((p: Profile) => [p.id, p])))
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { refresh() }, [refresh])
+
+  useEffect(() => {
+    const ch = supabase
+      .channel('profiles-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, refresh)
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [refresh])
+
+  return { profiles, loading, refresh }
+}
+
+export function profileLabel(profiles: Map<string, Profile>, id: string | null | undefined): string {
+  if (!id) return 'Unknown'
+  const p = profiles.get(id)
+  if (!p) return 'Unknown'
+  return p.display_name || (p.email ? p.email.split('@')[0] : 'Unknown')
 }
 
 /** All bom_items across all BOMs — used to compute "which BOMs is this item in?" */

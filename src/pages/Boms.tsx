@@ -2,13 +2,14 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
-import { useBoms, useAllBomItems, useItems, BOM_COLORS, bomColorChip } from '../lib/data'
+import { useBoms, useAllBomItems, useItems, useProfiles, BOM_COLORS, bomColorChip, profileLabel } from '../lib/data'
 import type { BomColor } from '../lib/database.types'
 
 export default function Boms() {
   const { boms, loading, refresh: refreshBoms } = useBoms()
   const { bomItems } = useAllBomItems()
   const { items } = useItems()
+  const { profiles } = useProfiles()
   const [showNew, setShowNew] = useState(false)
 
   const stats = useMemo(() => {
@@ -54,14 +55,17 @@ export default function Boms() {
               <li key={b.id}>
                 <Link to={`/bom/${b.id}`}
                   className="block p-4 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-hawk-400 transition">
-                  <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex items-start justify-between gap-2 mb-1">
                     <div className="min-w-0">
                       <div className="font-semibold truncate">{b.name}</div>
                       {b.description && <div className="text-xs text-zinc-500 mt-0.5 line-clamp-2">{b.description}</div>}
                     </div>
-                    <span className={`shrink-0 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border ${bomColorChip(b.color)}`}>
+                    <span className={`shrink-0 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border ${bomColorChip(b.color)}`}>
                       {b.color}
                     </span>
+                  </div>
+                  <div className="text-[11px] text-zinc-500 truncate">
+                    by <span className="text-zinc-400">{profileLabel(profiles, b.created_by)}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 mt-3 text-center">
                     <Stat label="Lines"   value={s.lines} />
