@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent 
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
-import { useLocations, useItems, useItemPhotos, CATEGORIES, locationPath } from '../lib/data'
+import { useLocations, useItems, useItemPhotos, useItemStocks, CATEGORIES, locationPath } from '../lib/data'
 import { uploadItemPhoto, deleteItemPhoto } from '../lib/photo'
 import { CreatedBy } from '../components/CreatedBy'
-import type { Category, Item, ItemPhoto } from '../lib/database.types'
+import type { Category, Item, ItemPhoto, ItemStock, Location } from '../lib/database.types'
 
 export default function ItemEdit() {
   const { id } = useParams()
@@ -17,12 +17,19 @@ export default function ItemEdit() {
 
   const existing = useMemo(() => items.find((i) => i.id === id), [items, id])
   const { photos: existingPhotos } = useItemPhotos(isNew ? null : (id ?? null))
+  const { stocks: existingStocks, refresh: refreshStocks } = useItemStocks(isNew ? null : (id ?? null))
 
   const [form, setForm] = useState<Partial<Item>>({
-    name: '', category: 'tool', quantity: 1, location_id: null, notes: '', in_use: 0, photo_url: null,
+    name: '', category: 'tool', notes: '', photo_url: null,
   })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+
+  // Pending NEW stock rows (only used when creating a new item — saved on first insert).
+  interface PendingStock { key: string; location_id: string | null; quantity: number; in_use: number }
+  const [pendingStocks, setPendingStocks] = useState<PendingStock[]>([
+    { key: crypto.randomUUID(), location_id: null, quantity: 1, in_use: 0 },
+  ])
 
   // Pending uploads: chosen but not yet committed (uploaded on save).
   interface PendingPhoto { key: string; file: File; preview: string }
@@ -105,31 +112,41 @@ export default function ItemEdit() {
     e.preventDefault()
     setBusy(true); setErr(null)
     try {
-      const quantity = Math.max(0, Number(form.quantity ?? 1))
-      const inUse = Math.max(0, Math.min(quantity, Number(form.in_use ?? 0)))
-
-      // Save (or insert) the item first — we need its id to attach photos.
+      // Save (or insert) the item first — we need its id to attach photos and stocks.
+      // items.quantity/in_use/location_id are derived: pass 0/null on insert; the DB
+      // trigger will update them when stocks are inserted below.
       let itemId = id ?? null
       if (isNew) {
         const { data, error } = await supabase.from('items').insert({
           name: form.name!.trim(),
           category: form.category as Category,
-          quantity,
-          location_id: form.location_id ?? null,
+          quantity: 0,
+          location_id: null,
           notes: form.notes ?? null,
-          in_use: inUse,
+          in_use: 0,
           created_by: user?.id ?? null,
         }).select('id').single()
         if (error) throw error
         itemId = data.id
+
+        // Insert any stocks the user filled in on the create form.
+        for (const s of pendingStocks) {
+          if (s.quantity <= 0 && s.in_use <= 0) continue
+          const cleanIn = Math.max(0, Math.min(s.quantity, s.in_use))
+          const { error: e } = await supabase.from('item_stocks').insert({
+            item_id: itemId,
+            location_id: s.location_id,
+            quantity: s.quantity,
+            in_use: cleanIn,
+            created_by: user?.id ?? null,
+          })
+          if (e) throw e
+        }
       } else {
         const { error } = await supabase.from('items').update({
           name: form.name!.trim(),
           category: form.category as Category,
-          quantity,
-          location_id: form.location_id ?? null,
           notes: form.notes ?? null,
-          in_use: inUse,
         }).eq('id', id!)
         if (error) throw error
       }
@@ -189,35 +206,26 @@ export default function ItemEdit() {
             className={inputCls} />
         </Field>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Category">
-            <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as Category })}
-              className={inputCls}>
-              {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-            </select>
-          </Field>
-          <Field label="Quantity">
-            <input type="number" min={0} value={form.quantity ?? 1}
-              onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })}
-              className={inputCls} />
-          </Field>
-        </div>
-
-        <Field label="Location">
-          <select value={form.location_id ?? ''} onChange={(e) => setForm({ ...form, location_id: e.target.value || null })}
+        <Field label="Category">
+          <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as Category })}
             className={inputCls}>
-            <option value="">— Unassigned —</option>
-            {sortedLocations.map((l) => (
-              <option key={l.id} value={l.id}>{locationPath(l.id, locations)}</option>
-            ))}
+            {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
         </Field>
 
-        <InUseStepper
-          inUse={Number(form.in_use ?? 0)}
-          quantity={Number(form.quantity ?? 1)}
-          onChange={(n) => setForm({ ...form, in_use: n })}
-        />
+        {/* Stocks: per-location quantity + in-use editor */}
+        {isNew ? (
+          <PendingStocksEditor
+            stocks={pendingStocks} setStocks={setPendingStocks}
+            sortedLocations={sortedLocations} locations={locations}
+          />
+        ) : (
+          <ExistingStocksEditor
+            itemId={id!} stocks={existingStocks} refresh={refreshStocks}
+            userId={user?.id ?? null}
+            sortedLocations={sortedLocations} locations={locations}
+          />
+        )}
 
         <div>
           <div className="flex items-center justify-between mb-1.5">
@@ -326,46 +334,235 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
-function InUseStepper({
-  inUse, quantity, onChange,
-}: { inUse: number; quantity: number; onChange: (n: number) => void }) {
-  const clamped = Math.max(0, Math.min(quantity, inUse))
-  const available = Math.max(0, quantity - clamped)
-  const fully = quantity > 0 && clamped === quantity
+/* ----- Stocks: per-location editors (one for new items, one for existing) ----- */
+
+interface PendingStock { key: string; location_id: string | null; quantity: number; in_use: number }
+
+function PendingStocksEditor({
+  stocks, setStocks, sortedLocations, locations,
+}: {
+  stocks: PendingStock[]
+  setStocks: (s: PendingStock[]) => void
+  sortedLocations: Location[]
+  locations: Location[]
+}) {
+  function update(idx: number, patch: Partial<PendingStock>) {
+    const next = [...stocks]
+    const merged = { ...next[idx], ...patch }
+    if (merged.in_use > merged.quantity) merged.in_use = merged.quantity
+    if (merged.in_use < 0) merged.in_use = 0
+    if (merged.quantity < 0) merged.quantity = 0
+    next[idx] = merged
+    setStocks(next)
+  }
+  function add() {
+    setStocks([...stocks, { key: crypto.randomUUID(), location_id: null, quantity: 1, in_use: 0 }])
+  }
+  function remove(idx: number) {
+    setStocks(stocks.filter((_, i) => i !== idx))
+  }
+
   return (
-    <div className={`px-4 py-3 rounded-lg border transition ${
-      clamped === 0 ? 'bg-zinc-900 border-zinc-800'
-      : fully ? 'bg-hawk-500/10 border-hawk-500/40'
-      : 'bg-amber-500/5 border-amber-500/30'
-    }`}>
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="font-medium">In use</div>
-          <div className="text-xs text-zinc-500">How many of the {quantity} are currently allocated</div>
-        </div>
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="text-xs uppercase tracking-wide text-zinc-500">Stocks</div>
+        <button type="button" onClick={add}
+          className="text-xs px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800 hover:border-hawk-400 text-zinc-300">
+          + Add stock
+        </button>
+      </div>
+      <div className="space-y-2">
+        {stocks.length === 0 && (
+          <div className="text-xs text-zinc-500 italic px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800">
+            No stock yet — add one to record where the units live.
+          </div>
+        )}
+        {stocks.map((s, i) => (
+          <StockRow key={s.key}
+            locationId={s.location_id} quantity={s.quantity} inUse={s.in_use}
+            sortedLocations={sortedLocations} locations={locations}
+            onChange={(p) => update(i, p)}
+            onRemove={() => remove(i)}
+            removable={stocks.length > 1}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ExistingStocksEditor({
+  itemId, stocks, refresh, userId, sortedLocations, locations,
+}: {
+  itemId: string
+  stocks: ItemStock[]
+  refresh: () => void
+  userId: string | null
+  sortedLocations: Location[]
+  locations: Location[]
+}) {
+  const [busy, setBusy] = useState(false)
+
+  async function persist(stockId: string, patch: Partial<Pick<ItemStock, 'location_id' | 'quantity' | 'in_use'>>) {
+    setBusy(true)
+    const { error } = await supabase.from('item_stocks').update(patch).eq('id', stockId)
+    setBusy(false)
+    if (error) alert(error.message); else refresh()
+  }
+
+  async function add() {
+    setBusy(true)
+    const { error } = await supabase.from('item_stocks').insert({
+      item_id: itemId, location_id: null, quantity: 1, in_use: 0, created_by: userId,
+    })
+    setBusy(false)
+    if (error) alert(error.message); else refresh()
+  }
+
+  async function remove(stockId: string) {
+    if (!confirm('Remove this stock entry?')) return
+    setBusy(true)
+    const { error } = await supabase.from('item_stocks').delete().eq('id', stockId)
+    setBusy(false)
+    if (error) alert(error.message); else refresh()
+  }
+
+  const totalQty   = stocks.reduce((a, s) => a + s.quantity, 0)
+  const totalInUse = stocks.reduce((a, s) => a + s.in_use,   0)
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="text-xs uppercase tracking-wide text-zinc-500">Stocks</div>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => onChange(Math.max(0, clamped - 1))}
-            disabled={clamped <= 0}
-            className="w-8 h-8 rounded-full bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 text-lg font-bold grid place-items-center">−</button>
-          <input type="number" min={0} max={quantity} value={clamped}
-            onChange={(e) => onChange(Math.max(0, Math.min(quantity, Number(e.target.value))))}
-            className="w-12 text-center px-1 py-1 rounded bg-zinc-950 border border-zinc-800 font-mono" />
-          <button type="button" onClick={() => onChange(Math.min(quantity, clamped + 1))}
-            disabled={clamped >= quantity}
-            className="w-8 h-8 rounded-full bg-hawk-500/80 hover:bg-hawk-500 disabled:opacity-30 text-lg font-bold grid place-items-center">+</button>
+          <span className="text-[10px] text-zinc-500">
+            <span className="text-zinc-200 font-mono">{totalInUse}</span> in use ·
+            <span className="text-zinc-200 font-mono"> {Math.max(0, totalQty - totalInUse)}</span> available ·
+            <span className="text-zinc-200 font-mono"> {totalQty}</span> total
+          </span>
+          <button type="button" onClick={add} disabled={busy}
+            className="text-xs px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800 hover:border-hawk-400 text-zinc-300 disabled:opacity-50">
+            + Add stock
+          </button>
         </div>
       </div>
-      <div className="mt-2 flex items-center gap-2 text-xs">
+      <div className="space-y-2">
+        {stocks.length === 0 && (
+          <div className="text-xs text-zinc-500 italic px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800">
+            No stock recorded — add one to mark where the units live.
+          </div>
+        )}
+        {stocks.map((s) => (
+          <StockRow key={s.id}
+            locationId={s.location_id} quantity={s.quantity} inUse={s.in_use}
+            sortedLocations={sortedLocations} locations={locations}
+            onChange={(p) => {
+              // Clamp client-side so the trigger never sees in_use > quantity
+              const next: typeof p = { ...p }
+              const q = next.quantity ?? s.quantity
+              const u = next.in_use ?? s.in_use
+              if (u > q) next.in_use = q
+              persist(s.id, next)
+            }}
+            onRemove={() => remove(s.id)}
+            removable
+            disabled={busy}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function StockRow({
+  locationId, quantity, inUse, sortedLocations, locations,
+  onChange, onRemove, removable, disabled,
+}: {
+  locationId: string | null
+  quantity: number
+  inUse: number
+  sortedLocations: Location[]
+  locations: Location[]
+  onChange: (patch: { location_id?: string | null; quantity?: number; in_use?: number }) => void
+  onRemove: () => void
+  removable: boolean
+  disabled?: boolean
+}) {
+  const available = Math.max(0, quantity - inUse)
+  const fully     = quantity > 0 && inUse === quantity
+  const partial   = inUse > 0 && inUse < quantity
+  return (
+    <div className={`p-3 rounded-2xl border transition ${
+      fully   ? 'bg-hawk-500/10 border-hawk-500/40' :
+      partial ? 'bg-amber-500/5 border-amber-500/30' :
+                'bg-zinc-900 border-zinc-800'
+    }`}>
+      <div className="flex items-center gap-2 mb-2">
+        <select value={locationId ?? ''}
+          disabled={disabled}
+          onChange={(e) => onChange({ location_id: e.target.value || null })}
+          className="flex-1 px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 focus:border-hawk-400 focus:outline-none text-sm">
+          <option value="">— Unassigned —</option>
+          {sortedLocations.map((l) => (
+            <option key={l.id} value={l.id}>{locationPath(l.id, locations)}</option>
+          ))}
+        </select>
+        {removable && (
+          <button type="button" onClick={onRemove} disabled={disabled}
+            title="Remove stock"
+            className="w-9 h-9 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 grid place-items-center">
+            ×
+          </button>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Stepper label="Quantity" value={quantity} min={Math.max(inUse, 0)}
+          onChange={(n) => onChange({ quantity: n })} disabled={disabled} />
+        <Stepper label="In use" value={inUse} min={0} max={quantity}
+          onChange={(n) => onChange({ in_use: n })} disabled={disabled} accent />
+      </div>
+      <div className="flex items-center gap-2 text-xs mt-2">
         <span className={`px-2 py-0.5 rounded-full ${
-          clamped > 0 ? 'bg-hawk-500/20 text-hawk-300 border border-hawk-500/40' : 'bg-zinc-800 text-zinc-500'
+          inUse > 0 ? 'bg-hawk-500/20 text-hawk-300 border border-hawk-500/40' : 'bg-zinc-800 text-zinc-500'
         }`}>
-          {clamped} in use
+          {inUse} in use
         </span>
         <span className={`px-2 py-0.5 rounded-full ${
           available > 0 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-zinc-800 text-zinc-500'
         }`}>
           {available} available
         </span>
+      </div>
+    </div>
+  )
+}
+
+function Stepper({
+  label, value, onChange, min = 0, max, disabled, accent,
+}: {
+  label: string
+  value: number
+  onChange: (n: number) => void
+  min?: number
+  max?: number
+  disabled?: boolean
+  accent?: boolean
+}) {
+  const cap = (n: number) => Math.max(min, max != null ? Math.min(max, n) : n)
+  const decBtn = 'w-7 h-7 rounded-full bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 text-sm font-bold grid place-items-center'
+  const incBtn = accent
+    ? 'w-7 h-7 rounded-full bg-hawk-500/80 hover:bg-hawk-500 disabled:opacity-30 text-sm font-bold text-white grid place-items-center'
+    : 'w-7 h-7 rounded-full bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 text-sm font-bold grid place-items-center'
+  return (
+    <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800">
+      <span className="text-[10px] uppercase tracking-wider text-zinc-500">{label}</span>
+      <div className="flex items-center gap-1.5">
+        <button type="button" onClick={() => onChange(cap(value - 1))} disabled={disabled || value <= min} className={decBtn}>−</button>
+        <input type="number" value={value} min={min} max={max}
+          disabled={disabled}
+          onChange={(e) => onChange(cap(Number(e.target.value)))}
+          className="w-12 text-center px-1 py-0.5 rounded bg-zinc-900 border border-zinc-800 font-mono text-sm" />
+        <button type="button" onClick={() => onChange(cap(value + 1))} disabled={disabled || (max != null && value >= max)} className={incBtn}>+</button>
       </div>
     </div>
   )

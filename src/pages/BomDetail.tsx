@@ -3,8 +3,9 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import {
-  useBoms, useBomItems, useItems, useLocations, useProfiles,
+  useBoms, useBomItems, useItems, useLocations, useProfiles, useAllItemStocks,
   CATEGORIES, BOM_COLORS, bomColorChip, categoryLabel, locationPath, profileLabel,
+  adjustItemInUse,
 } from '../lib/data'
 import { CreatedBy } from '../components/CreatedBy'
 import type { Bom, BomColor, BomItem, Item } from '../lib/database.types'
@@ -17,6 +18,16 @@ export default function BomDetail() {
   const { items, refresh: refreshItems } = useItems()
   const { locations } = useLocations()
   const { profiles } = useProfiles()
+  const { stocks: allStocks } = useAllItemStocks()
+
+  const stocksByItem = useMemo(() => {
+    const m = new Map<string, typeof allStocks>()
+    for (const s of allStocks) {
+      const arr = m.get(s.item_id) ?? []
+      arr.push(s); m.set(s.item_id, arr)
+    }
+    return m
+  }, [allStocks])
 
   const bom = useMemo(() => boms.find((b) => b.id === id) ?? null, [boms, id])
   const itemById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items])
@@ -125,13 +136,22 @@ export default function BomDetail() {
         </div>
       ) : (
         <ul className="space-y-2">
-          {lines.map(({ bi, item }) => (
-            <Line key={bi.id} bi={bi} item={item}
-              locationName={item ? locationPath(item.location_id, locations) : ''}
-              addedBy={profileLabel(profiles, bi.created_by)}
-              onLinesChanged={refreshLines}
-              onItemsChanged={refreshItems} />
-          ))}
+          {lines.map(({ bi, item }) => {
+            const stocks = item ? (stocksByItem.get(item.id) ?? []) : []
+            const placed = Array.from(new Set(stocks.map((s) => s.location_id).filter((x): x is string => !!x)))
+            const locName =
+              !item ? '' :
+              placed.length === 0 ? 'Unassigned' :
+              placed.length === 1 ? locationPath(placed[0], locations) :
+              `${locationPath(placed[0], locations)} +${placed.length - 1} more`
+            return (
+              <Line key={bi.id} bi={bi} item={item} stocks={stocks}
+                locationName={locName}
+                addedBy={profileLabel(profiles, bi.created_by)}
+                onLinesChanged={refreshLines}
+                onItemsChanged={refreshItems} />
+            )
+          })}
         </ul>
       )}
 
@@ -154,10 +174,11 @@ function BigStat({ label, value, tone = 'neutral' }: { label: string; value: num
 }
 
 function Line({
-  bi, item, locationName, addedBy, onLinesChanged, onItemsChanged,
+  bi, item, stocks, locationName, addedBy, onLinesChanged, onItemsChanged,
 }: {
   bi: BomItem
   item: Item | null
+  stocks: import('../lib/database.types').ItemStock[]
   locationName: string
   addedBy: string
   onLinesChanged: () => void
@@ -180,11 +201,8 @@ function Line({
 
   async function adjustInUse(delta: number) {
     if (!item) return
-    const next = Math.max(0, Math.min(item.quantity, item.in_use + delta))
-    if (next === item.in_use) return
-    const { error } = await supabase.from('items').update({ in_use: next }).eq('id', item.id)
-    if (error) alert(error.message)
-    else onItemsChanged()
+    await adjustItemInUse(stocks, delta)
+    onItemsChanged()
   }
 
   return (

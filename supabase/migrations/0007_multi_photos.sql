@@ -32,6 +32,13 @@ create trigger item_photos_sync_primary
   after insert or update or delete on public.item_photos
   for each row execute function public.tg_sync_item_primary_photo();
 
+-- Defensive: re-create tg_set_created_by here too, in case 0005 didn't run cleanly.
+create or replace function public.tg_set_created_by() returns trigger language plpgsql as $$
+begin
+  if new.created_by is null then new.created_by := auth.uid(); end if;
+  return new;
+end $$;
+
 drop trigger if exists item_photos_set_created_by on public.item_photos;
 create trigger item_photos_set_created_by before insert on public.item_photos
   for each row execute function public.tg_set_created_by();

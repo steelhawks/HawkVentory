@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from './supabase'
-import type { Item, Location, Category, Bom, BomItem, BomColor, Profile, ItemPhoto } from './database.types'
+import type { Item, Location, Category, Bom, BomItem, BomColor, Profile, ItemPhoto, ItemStock } from './database.types'
 
 export const CATEGORIES: { value: Category; label: string }[] = [
   { value: 'tool',        label: 'Tool' },
@@ -146,6 +146,83 @@ export function useBomItems(bomId: string | null) {
   }, [bomId, refresh])
 
   return { bomItems, loading, refresh }
+}
+
+/* --------------------------- Item stocks --------------------------- */
+
+export function useAllItemStocks() {
+  const [stocks, setStocks] = useState<ItemStock[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const refresh = useCallback(async () => {
+    const { data, error } = await supabase.from('item_stocks').select('*')
+    if (!error && data) setStocks(data)
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { refresh() }, [refresh])
+
+  useEffect(() => {
+    const ch = supabase
+      .channel('item-stocks-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'item_stocks' }, refresh)
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [refresh])
+
+  return { stocks, loading, refresh }
+}
+
+export function useItemStocks(itemId: string | null) {
+  const [stocks, setStocks] = useState<ItemStock[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const refresh = useCallback(async () => {
+    if (!itemId) { setStocks([]); setLoading(false); return }
+    const { data, error } = await supabase
+      .from('item_stocks').select('*').eq('item_id', itemId).order('created_at')
+    if (!error && data) setStocks(data)
+    setLoading(false)
+  }, [itemId])
+
+  useEffect(() => { refresh() }, [refresh])
+
+  useEffect(() => {
+    if (!itemId) return
+    const ch = supabase
+      .channel(`item-stocks-${itemId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'item_stocks', filter: `item_id=eq.${itemId}` }, refresh)
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [itemId, refresh])
+
+  return { stocks, loading, refresh }
+}
+
+/** Bump the in-use count by `delta` across stocks for an item. Increments fill the
+ *  first stock that has capacity; decrements drain the first stock with in_use > 0. */
+export async function adjustItemInUse(stocks: ItemStock[], delta: number): Promise<void> {
+  if (delta === 0) return
+  const ordered = [...stocks].sort((a, b) => a.created_at.localeCompare(b.created_at))
+  if (delta > 0) {
+    for (const s of ordered) {
+      const room = s.quantity - s.in_use
+      if (room <= 0) continue
+      const take = Math.min(room, delta)
+      await supabase.from('item_stocks').update({ in_use: s.in_use + take }).eq('id', s.id)
+      delta -= take
+      if (delta === 0) return
+    }
+  } else {
+    let need = -delta
+    for (const s of ordered) {
+      if (s.in_use <= 0) continue
+      const take = Math.min(s.in_use, need)
+      await supabase.from('item_stocks').update({ in_use: s.in_use - take }).eq('id', s.id)
+      need -= take
+      if (need === 0) return
+    }
+  }
 }
 
 /* --------------------------- Item photos --------------------------- */

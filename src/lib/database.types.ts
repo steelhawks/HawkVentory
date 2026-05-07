@@ -70,3 +70,19 @@ export interface ItemPhoto {
   created_by: string | null
 }
 
+/**
+ * Per-location stock for an item. items.quantity / items.in_use / items.location_id
+ * are denormalized rollups of these rows (synced via DB trigger).
+ */
+export interface ItemStock {
+  id: string
+  item_id: string
+  location_id: string | null
+  quantity: number
+  in_use: number
+  notes: string | null
+  created_at: string
+  updated_at: string
+  created_by: string | null
+}
+

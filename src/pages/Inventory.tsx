@@ -1,17 +1,17 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  useItems, useLocations, useBoms, useAllBomItems,
-  locationPath, CATEGORIES, categoryLabel, bomColorChip,
+  useItems, useLocations, useBoms, useAllBomItems, useAllItemStocks,
+  locationPath, CATEGORIES, categoryLabel, bomColorChip, adjustItemInUse,
 } from '../lib/data'
 import type { Category } from '../lib/database.types'
-import { supabase } from '../lib/supabase'
 
 export default function Inventory() {
   const { items, loading, refresh: refreshItems } = useItems()
   const { locations } = useLocations()
   const { boms } = useBoms()
   const { bomItems } = useAllBomItems()
+  const { stocks: allStocks } = useAllItemStocks()
   const [q, setQ] = useState('')
   const [cat, setCat] = useState<Category | 'all'>('all')
   const [bomFilter, setBomFilter] = useState<string>('all')         // bom id, 'all', 'unassigned'
@@ -47,12 +47,20 @@ export default function Inventory() {
     })
   }, [items, q, cat, useFilter, bomFilter, itemBoms])
 
-  async function adjustInUse(id: string, current: number, qty: number, delta: number) {
-    const next = Math.max(0, Math.min(qty, current + delta))
-    if (next === current) return
-    const { error } = await supabase.from('items').update({ in_use: next }).eq('id', id)
-    if (error) alert(error.message)
-    else refreshItems()
+  // Index stocks by item_id for O(1) per-card lookup.
+  const stocksByItem = useMemo(() => {
+    const m = new Map<string, typeof allStocks>()
+    for (const s of allStocks) {
+      const arr = m.get(s.item_id) ?? []
+      arr.push(s); m.set(s.item_id, arr)
+    }
+    return m
+  }, [allStocks])
+
+  async function bumpInUse(itemId: string, delta: number) {
+    const stocks = stocksByItem.get(itemId) ?? []
+    await adjustItemInUse(stocks, delta)
+    refreshItems()
   }
 
   const activeBom = bomFilter !== 'all' && bomFilter !== 'unassigned' ? bomById.get(bomFilter) ?? null : null
@@ -174,11 +182,22 @@ export default function Inventory() {
                     <div className="font-bold text-base leading-tight truncate" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
                       {it.name}
                     </div>
-                    <div className="mt-0.5 text-xs text-white/80 truncate flex items-center gap-2">
-                      <span>{categoryLabel(it.category)}</span>
-                      <span className="text-white/30">·</span>
-                      <span className="truncate">📍 {locationPath(it.location_id, locations)}</span>
-                    </div>
+                    {(() => {
+                      const stocks = stocksByItem.get(it.id) ?? []
+                      const placedLocs = stocks.map((s) => s.location_id).filter((x): x is string => !!x)
+                      const uniqLocs = Array.from(new Set(placedLocs))
+                      const locText =
+                        uniqLocs.length === 0 ? 'Unassigned' :
+                        uniqLocs.length === 1 ? locationPath(uniqLocs[0], locations) :
+                        `${locationPath(uniqLocs[0], locations)} +${uniqLocs.length - 1} more`
+                      return (
+                        <div className="mt-0.5 text-xs text-white/80 truncate flex items-center gap-2">
+                          <span>{categoryLabel(it.category)}</span>
+                          <span className="text-white/30">·</span>
+                          <span className="truncate">📍 {locText}</span>
+                        </div>
+                      )
+                    })()}
                     {itemBomList.length > 0 && (
                       <div className="mt-1.5 flex items-center gap-1 flex-wrap">
                         {itemBomList.slice(0, 3).map((b) => (
@@ -200,7 +219,7 @@ export default function Inventory() {
                   it.in_use > 0 ? '' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'
                 }`}>
                   <button
-                    onClick={(e) => { e.preventDefault(); adjustInUse(it.id, it.in_use, it.quantity, -1) }}
+                    onClick={(e) => { e.preventDefault(); bumpInUse(it.id, -1) }}
                     disabled={it.in_use <= 0}
                     title="Mark one as available"
                     className="w-7 h-7 rounded-full grid place-items-center backdrop-blur-sm border bg-black/60 text-white/90 border-white/10 hover:bg-black/80 disabled:opacity-30">
@@ -209,7 +228,7 @@ export default function Inventory() {
                     </svg>
                   </button>
                   <button
-                    onClick={(e) => { e.preventDefault(); adjustInUse(it.id, it.in_use, it.quantity, +1) }}
+                    onClick={(e) => { e.preventDefault(); bumpInUse(it.id, +1) }}
                     disabled={it.in_use >= it.quantity}
                     title="Mark one as in use"
                     className="w-7 h-7 rounded-full grid place-items-center backdrop-blur-sm border bg-hawk-500/90 text-white border-hawk-400 hover:bg-hawk-400 disabled:opacity-30">

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
-import { useItems, useLocations, locationPath, rootLocation, categoryLabel } from '../lib/data'
+import { useItems, useLocations, useAllItemStocks, locationPath, rootLocation, categoryLabel } from '../lib/data'
 import type { Location } from '../lib/database.types'
 
 /**
@@ -11,6 +11,7 @@ import type { Location } from '../lib/database.types'
 export default function MapView() {
   const { locations } = useLocations()
   const { items } = useItems()
+  const { stocks } = useAllItemStocks()
   const [selectedRoot, setSelectedRoot] = useState<Location | null>(null)
 
   // Top-level rooms (parent_id null) with map coords are the placeable markers.
@@ -19,18 +20,27 @@ export default function MapView() {
     [locations],
   )
 
-  // Items grouped by their root location (the room).
+  // Items grouped by their root location, derived from stocks (so an item with
+  // 2 in Lab and 3 in Closet appears under both rooms).
   const itemsByRoot = useMemo(() => {
-    const m = new Map<string, typeof items>()
-    for (const it of items) {
-      const root = rootLocation(it.location_id, locations)
+    const itemById = new Map(items.map((i) => [i.id, i]))
+    const m = new Map<string, { item: typeof items[number]; stockLocId: string | null }[]>()
+    const seen = new Set<string>()  // dedupe (rootId, itemId, stockLocId)
+    for (const s of stocks) {
+      if (!s.location_id) continue
+      const root = rootLocation(s.location_id, locations)
       if (!root) continue
+      const it = itemById.get(s.item_id)
+      if (!it) continue
+      const key = `${root.id}|${it.id}|${s.location_id}`
+      if (seen.has(key)) continue
+      seen.add(key)
       const arr = m.get(root.id) ?? []
-      arr.push(it)
+      arr.push({ item: it, stockLocId: s.location_id })
       m.set(root.id, arr)
     }
     return m
-  }, [items, locations])
+  }, [items, locations, stocks])
 
   return (
     <div className="px-4 md:px-6 py-4 md:py-6 max-w-6xl">
@@ -106,16 +116,17 @@ function RoomDetail({
 }: {
   root: Location
   locations: Location[]
-  items: ReturnType<typeof useItems>['items']
+  items: { item: import('../lib/database.types').Item; stockLocId: string | null }[]
   onClose: () => void
 }) {
-  // Group items by their immediate sub-location path within this room.
+  // Group items by sub-location path within this room (each stock counts once
+  // per its specific sub-location).
   const groups = useMemo(() => {
-    const map = new Map<string, typeof items>()
-    for (const it of items) {
-      const key = locationPath(it.location_id, locations)
+    const map = new Map<string, typeof items[number]['item'][]>()
+    for (const { item, stockLocId } of items) {
+      const key = locationPath(stockLocId, locations)
       const arr = map.get(key) ?? []
-      arr.push(it)
+      arr.push(item)
       map.set(key, arr)
     }
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b))
