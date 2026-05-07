@@ -5,9 +5,8 @@ import { useItems, useLocations, locationPath, rootLocation, categoryLabel } fro
 import type { Location } from '../lib/database.types'
 
 /**
- * Placeholder floorplan: a stylized SVG with a few rooms.
- * Swap the <PlaceholderFloorplan/> for an <img src="/floorplan.png" /> when the user provides one;
- * the marker overlay (positioned by % coords) keeps working unchanged.
+ * Real Team 2601 floorplan lives at /floorplan.svg in public/. Markers are absolutely
+ * positioned by percent coords so they survive any future image swap.
  */
 export default function MapView() {
   const { locations } = useLocations()
@@ -40,11 +39,16 @@ export default function MapView() {
         Tap a room to see what's stored there. Pinch to zoom, drag to pan.
       </p>
 
-      <div className="rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-900 aspect-[4/3] md:aspect-[16/9] relative">
+      <div className="rounded-3xl overflow-hidden border border-zinc-800 bg-zinc-900 aspect-[1466/826] relative">
         <TransformWrapper minScale={0.6} maxScale={5} doubleClick={{ mode: 'toggle' }}>
           <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full !h-full">
             <div className="relative w-full h-full">
-              <PlaceholderFloorplan />
+              <img
+                src={`${import.meta.env.BASE_URL}floorplan.svg`}
+                alt="Team 2601 floorplan"
+                className="absolute inset-0 w-full h-full select-none pointer-events-none"
+                draggable={false}
+              />
               {rooms.map((r) => {
                 const count = itemsByRoot.get(r.id)?.length ?? 0
                 const active = selectedRoot?.id === r.id
@@ -73,10 +77,15 @@ export default function MapView() {
       </div>
 
       {rooms.length === 0 && (
-        <div className="mt-4 p-4 rounded-xl bg-zinc-900 border border-zinc-800 text-sm text-zinc-400">
+        <div className="mt-4 p-4 rounded-2xl bg-zinc-900 border border-zinc-800 text-sm text-zinc-400">
           No rooms placed on the map yet. Go to{' '}
           <Link to="/locations" className="text-hawk-400 underline">Places</Link>{' '}
-          to add rooms (Lab, Closet, etc.) and set their map coordinates.
+          and add the three rooms with these coordinates so markers line up with the floorplan:
+          <ul className="mt-2 ml-4 list-disc text-xs text-zinc-500 space-y-0.5">
+            <li><span className="text-zinc-300 font-medium">Hallway</span> — X 50, Y 49</li>
+            <li><span className="text-zinc-300 font-medium">Bathroom</span> — X 38, Y 30</li>
+            <li><span className="text-zinc-300 font-medium">Lab</span> — X 50, Y 71</li>
+          </ul>
         </div>
       )}
 
@@ -150,35 +159,3 @@ function RoomDetail({
   )
 }
 
-/** Stylized placeholder until the real school floorplan image is dropped in. */
-function PlaceholderFloorplan() {
-  return (
-    <svg viewBox="0 0 1600 900" className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
-      <defs>
-        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#27272a" strokeWidth="1" />
-        </pattern>
-      </defs>
-      <rect width="1600" height="900" fill="#18181b" />
-      <rect width="1600" height="900" fill="url(#grid)" />
-      {/* Outer wall */}
-      <rect x="60" y="60" width="1480" height="780" fill="none" stroke="#3f3f46" strokeWidth="6" rx="8" />
-      {/* Rough rooms */}
-      <rect x="80" y="80" width="500" height="380" fill="#1f1f23" stroke="#3f3f46" strokeWidth="3" />
-      <text x="330" y="280" textAnchor="middle" fill="#52525b" fontSize="28" fontFamily="ui-sans-serif">Lab</text>
-      <rect x="600" y="80" width="320" height="240" fill="#1f1f23" stroke="#3f3f46" strokeWidth="3" />
-      <text x="760" y="210" textAnchor="middle" fill="#52525b" fontSize="22" fontFamily="ui-sans-serif">Closet</text>
-      <rect x="940" y="80" width="240" height="240" fill="#1f1f23" stroke="#3f3f46" strokeWidth="3" />
-      <text x="1060" y="210" textAnchor="middle" fill="#52525b" fontSize="22" fontFamily="ui-sans-serif">Bathroom</text>
-      <rect x="1200" y="80" width="320" height="380" fill="#1f1f23" stroke="#3f3f46" strokeWidth="3" />
-      <text x="1360" y="280" textAnchor="middle" fill="#52525b" fontSize="22" fontFamily="ui-sans-serif">Workshop</text>
-      <rect x="80" y="480" width="900" height="340" fill="#1f1f23" stroke="#3f3f46" strokeWidth="3" />
-      <text x="530" y="660" textAnchor="middle" fill="#52525b" fontSize="28" fontFamily="ui-sans-serif">Hallway</text>
-      <rect x="1000" y="480" width="520" height="340" fill="#1f1f23" stroke="#3f3f46" strokeWidth="3" />
-      <text x="1260" y="660" textAnchor="middle" fill="#52525b" fontSize="22" fontFamily="ui-sans-serif">Pit Area</text>
-      <text x="800" y="870" textAnchor="middle" fill="#3f3f46" fontSize="14" fontFamily="ui-monospace">
-        placeholder floorplan — replace with team 2601's actual map
-      </text>
-    </svg>
-  )
-}

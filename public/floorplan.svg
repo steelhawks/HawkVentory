@@ -1,0 +1,49 @@
+<svg viewBox="0 0 1466 826" xmlns="http://www.w3.org/2000/svg" role="img" style="width: 100%; background: rgb(26, 26, 31);">
+  <title style="fill:rgb(0, 0, 0);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">Team 2601 floorplan minimap</title>
+  <defs>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#ffffff" stroke-width="0.3" opacity="0.08"/>
+    </pattern>
+  </defs>
+
+  <rect width="1456" height="816" fill="#1a1a1f" style="fill:rgb(26, 26, 31);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <rect width="1456" height="816" fill="url(#grid)" style="stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <g fill="none" stroke="#6b6b7a" stroke-width="1.5" style="fill:none;stroke:rgb(107, 107, 122);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">
+
+    <!-- Outer boundary -->
+    <rect x="48" y="40" width="1360" height="736" rx="4" stroke="#555566" stroke-width="1" style="fill:none;stroke:rgb(85, 85, 102);color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+    <!-- Hallway: centered horizontally -->
+    <!-- center x=728, hallway width=900, so x=278. height=160, y=328 -->
+    <rect x="278" y="328" width="900" height="160" rx="3" fill="#22222a" style="fill:rgb(34, 34, 42);stroke:rgb(107, 107, 122);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+    <text x="728" y="408" font-family="system-ui,sans-serif" font-size="22" fill="#8a8a9a" text-anchor="middle" dominant-baseline="middle" style="fill:rgb(138, 138, 154);stroke:rgb(107, 107, 122);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:system-ui, sans-serif;font-size:22px;font-weight:400;text-anchor:middle;dominant-baseline:middle">Hallway</text>
+
+    <!-- Bathroom: above hallway, centered around x=728 shifted left so doorway aligns left of bathroom -->
+    <!-- bathroom width=260, height=170. center it at x=560: x=430 -->
+    <!-- bottom of bathroom at y=328, top at y=158 -->
+    <rect x="430" y="158" width="260" height="170" rx="3" fill="#22222a" style="fill:rgb(34, 34, 42);stroke:rgb(107, 107, 122);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+    <text x="560" y="244" font-family="system-ui,sans-serif" font-size="18" fill="#8a8a9a" text-anchor="middle" dominant-baseline="middle" style="fill:rgb(138, 138, 154);stroke:rgb(107, 107, 122);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:system-ui, sans-serif;font-size:18px;font-weight:400;text-anchor:middle;dominant-baseline:middle">Bathroom</text>
+
+    <!-- Doorway: gap between bathroom bottom and hallway top, left side of bathroom -->
+    <!-- bathroom left x=430, doorway 48px wide starting at x=454 (left-ish of bathroom) -->
+    <!-- gap from y=328 up to y=328, connector block between y=310 and y=328 -->
+    <rect x="454" y="288" width="48" height="42" rx="2" fill="#1a1a1f" stroke="#6b6b7a" stroke-width="1" style="fill:rgb(26, 26, 31);stroke:rgb(107, 107, 122);color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+    <!-- Lab: below hallway, centered around x=728 -->
+    <!-- lab width=340, height=200. x=558, y=488 (hallway bottom=488), lab bottom=688 -->
+    <rect x="558" y="488" width="340" height="200" rx="3" fill="#22222a" style="fill:rgb(34, 34, 42);stroke:rgb(107, 107, 122);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+    <text x="728" y="590" font-family="system-ui,sans-serif" font-size="22" fill="#8a8a9a" text-anchor="middle" dominant-baseline="middle" style="fill:rgb(138, 138, 154);stroke:rgb(107, 107, 122);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:system-ui, sans-serif;font-size:22px;font-weight:400;text-anchor:middle;dominant-baseline:middle">Lab</text>
+
+    <!-- Lab door openings on walls -->
+    <rect x="558" y="536" width="12" height="38" rx="2" fill="#1a1a1f" stroke="#6b6b7a" stroke-width="1" style="fill:rgb(26, 26, 31);stroke:rgb(107, 107, 122);color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+    <rect x="886" y="536" width="12" height="38" rx="2" fill="#1a1a1f" stroke="#6b6b7a" stroke-width="1" style="fill:rgb(26, 26, 31);stroke:rgb(107, 107, 122);color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+    <rect x="886" y="620" width="12" height="38" rx="2" fill="#1a1a1f" stroke="#6b6b7a" stroke-width="1" style="fill:rgb(26, 26, 31);stroke:rgb(107, 107, 122);color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+    <!-- Doorway connecting hallway bottom to lab top -->
+    <rect x="704" y="486" width="48" height="4" rx="2" fill="#1a1a1f" stroke="#6b6b7a" stroke-width="1" style="fill:rgb(26, 26, 31);stroke:rgb(107, 107, 122);color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, &quot;system-ui&quot;, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  </g>
+
+  <text x="728" y="800" font-family="system-ui,sans-serif" font-size="13" fill="#444455" text-anchor="middle" style="fill:rgb(68, 68, 85);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:system-ui, sans-serif;font-size:13px;font-weight:400;text-anchor:middle;dominant-baseline:auto">team 2601 floorplan — hallway / bathroom / lab</text>
+</svg>
