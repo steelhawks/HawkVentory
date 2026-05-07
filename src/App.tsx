@@ -28,12 +28,12 @@ function SetupScreen() {
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="max-w-md w-full p-6 rounded-2xl bg-zinc-900 border border-zinc-800">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-lg bg-hawk-400 grid place-items-center">
-            <svg viewBox="0 0 32 32" className="w-6 h-6"><path d="M8 22 L16 8 L24 22 L20 22 L16 16 L12 22 Z" fill="#0a0a0a"/></svg>
+          <div className="w-12 h-12 rounded-lg bg-hawk-500 grid place-items-center ring-1 ring-hawk-400/30">
+            <img src={`${import.meta.env.BASE_URL}hawk.svg`} alt="" className="w-8 h-4 hawk-white" />
           </div>
           <div>
             <h1 className="font-bold text-lg leading-tight">HawkVentory</h1>
-            <p className="text-xs text-zinc-500">Team 2601 — setup needed</p>
+            <p className="text-xs text-hawk-400 uppercase tracking-wider">Team 2601 — setup needed</p>
           </div>
         </div>
         <p className="text-sm text-zinc-300 mb-3">Supabase environment variables are missing. To finish setup:</p>

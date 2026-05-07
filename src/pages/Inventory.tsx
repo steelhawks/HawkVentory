@@ -23,7 +23,7 @@ export default function Inventory() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl md:text-3xl font-bold">Inventory</h1>
         <Link to="/item/new"
-          className="px-4 py-2 rounded-lg bg-hawk-400 text-zinc-950 font-semibold text-sm">
+          className="px-4 py-2 rounded-lg bg-hawk-500 hover:bg-hawk-400 text-white font-semibold text-sm transition shadow-lg shadow-hawk-900/30">
           + Add
         </Link>
       </div>

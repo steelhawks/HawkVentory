@@ -55,8 +55,10 @@ export default function MapView() {
                     style={{ left: `${r.map_x}%`, top: `${r.map_y}%` }}
                     className={`absolute -translate-x-1/2 -translate-y-1/2 group flex flex-col items-center`}
                   >
-                    <span className={`w-7 h-7 rounded-full grid place-items-center font-bold text-xs shadow-lg
-                      ${active ? 'bg-hawk-400 text-zinc-950 ring-4 ring-hawk-400/30' : 'bg-hawk-500 text-zinc-950'}`}>
+                    <span className={`w-8 h-8 rounded-full grid place-items-center font-bold text-xs shadow-lg shadow-hawk-900/40 transition
+                      ${active
+                        ? 'bg-hawk-400 text-white ring-4 ring-hawk-400/40 scale-110'
+                        : 'bg-hawk-500 text-white ring-1 ring-hawk-400/40'}`}>
                       {count}
                     </span>
                     <span className="mt-1 px-1.5 py-0.5 text-[10px] rounded bg-zinc-950/80 text-zinc-100 whitespace-nowrap">

@@ -28,32 +28,41 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-12 h-12 rounded-xl bg-hawk-400 grid place-items-center">
-            <svg viewBox="0 0 32 32" className="w-7 h-7"><path d="M8 22 L16 8 L24 22 L20 22 L16 16 L12 22 Z" fill="#0a0a0a"/></svg>
+    <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
+      {/* Backdrop hawk */}
+      <img
+        src={`${import.meta.env.BASE_URL}hawk.svg`} alt=""
+        aria-hidden="true"
+        className="absolute -right-32 -bottom-24 w-[900px] max-w-none opacity-[0.04] pointer-events-none select-none"
+      />
+
+      <div className="w-full max-w-sm relative">
+        <div className="flex flex-col items-center text-center mb-8">
+          <div className="w-20 h-20 rounded-2xl bg-hawk-500 grid place-items-center ring-1 ring-hawk-400/40 shadow-2xl shadow-hawk-900/50 mb-4">
+            <img src={`${import.meta.env.BASE_URL}hawk.svg`} alt="Steel Hawks" className="w-14 h-7 hawk-white" />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold leading-tight">HawkVentory</h1>
-            <p className="text-xs text-zinc-400">Team 2601 Steel Hawks</p>
+          <h1 className="text-3xl font-black tracking-tight">HawkVentory</h1>
+          <div className="mt-1 flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-hawk-400 font-semibold">
+            <span className="h-px w-6 bg-hawk-400/40" />
+            Team 2601 · Steel Hawks
+            <span className="h-px w-6 bg-hawk-400/40" />
           </div>
         </div>
 
         <form onSubmit={submit} className="space-y-3">
           <input
-            type="email" required autoComplete="email" placeholder="email"
+            type="email" required autoComplete="email" placeholder="team email"
             value={email} onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-800 focus:border-hawk-400 focus:outline-none"
+            className="w-full px-4 py-3 rounded-lg bg-zinc-900/80 border border-zinc-800 focus:border-hawk-400 focus:ring-2 focus:ring-hawk-400/20 focus:outline-none transition"
           />
           <input
             type="password" required autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
             placeholder="password" value={password} onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3 rounded-lg bg-zinc-900 border border-zinc-800 focus:border-hawk-400 focus:outline-none"
+            className="w-full px-4 py-3 rounded-lg bg-zinc-900/80 border border-zinc-800 focus:border-hawk-400 focus:ring-2 focus:ring-hawk-400/20 focus:outline-none transition"
           />
           <button
             type="submit" disabled={busy}
-            className="w-full py-3 rounded-lg bg-hawk-400 text-zinc-950 font-semibold disabled:opacity-50"
+            className="w-full py-3 rounded-lg bg-hawk-500 hover:bg-hawk-400 text-white font-semibold disabled:opacity-50 transition shadow-lg shadow-hawk-900/40"
           >
             {busy ? '…' : mode === 'signin' ? 'Sign in' : 'Create account'}
           </button>
@@ -64,7 +73,7 @@ export default function Login() {
 
         <button
           onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(null); setInfo(null) }}
-          className="mt-6 w-full text-sm text-zinc-400 hover:text-zinc-200"
+          className="mt-6 w-full text-sm text-zinc-400 hover:text-hawk-400 transition"
         >
           {mode === 'signin' ? "New to the team? Create an account" : 'Already have an account? Sign in'}
         </button>

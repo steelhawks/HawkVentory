@@ -24,7 +24,7 @@ export default function Locations() {
           <p className="text-sm text-zinc-500">Rooms and sub-locations where items live.</p>
         </div>
         <button onClick={() => { setEditing(null); setShowNew(true) }}
-          className="px-4 py-2 rounded-lg bg-hawk-400 text-zinc-950 font-semibold text-sm">
+          className="px-4 py-2 rounded-lg bg-hawk-500 hover:bg-hawk-400 text-white transition font-semibold text-sm">
           + Add
         </button>
       </div>
@@ -184,7 +184,7 @@ function LocationForm({
           {err && <p className="text-sm text-red-400">{err}</p>}
           <div className="flex gap-2 pt-1">
             <button type="submit" disabled={busy}
-              className="flex-1 py-2.5 rounded-lg bg-hawk-400 text-zinc-950 font-semibold disabled:opacity-50">
+              className="flex-1 py-2.5 rounded-lg bg-hawk-500 hover:bg-hawk-400 text-white transition font-semibold disabled:opacity-50">
               {busy ? '…' : isNew ? 'Create' : 'Save'}
             </button>
             {!isNew && (

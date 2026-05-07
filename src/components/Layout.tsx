@@ -14,13 +14,13 @@ export default function Layout() {
     <div className="min-h-screen flex flex-col md:flex-row">
       {/* Desktop sidebar */}
       <aside className="hidden md:flex md:flex-col md:w-60 md:border-r md:border-zinc-900 md:p-4">
-        <div className="flex items-center gap-2 mb-8 px-2">
-          <div className="w-8 h-8 rounded-md bg-hawk-400 grid place-items-center">
-            <svg viewBox="0 0 32 32" className="w-5 h-5"><path d="M8 22 L16 8 L24 22 L20 22 L16 16 L12 22 Z" fill="#0a0a0a"/></svg>
+        <div className="flex items-center gap-2.5 mb-8 px-2">
+          <div className="w-9 h-9 rounded-md bg-hawk-500 grid place-items-center shadow-lg shadow-hawk-900/40 ring-1 ring-hawk-400/30">
+            <img src={`${import.meta.env.BASE_URL}hawk.svg`} alt="" className="w-6 h-3 hawk-white" />
           </div>
           <div>
-            <div className="font-bold leading-none">HawkVentory</div>
-            <div className="text-[10px] text-zinc-500">Team 2601</div>
+            <div className="font-bold leading-tight">HawkVentory</div>
+            <div className="text-[10px] uppercase tracking-wider text-hawk-400/80 font-semibold">Team 2601 · Steel Hawks</div>
           </div>
         </div>
         <nav className="flex flex-col gap-1">
@@ -42,12 +42,15 @@ export default function Layout() {
       </aside>
 
       {/* Mobile top bar */}
-      <header className="md:hidden flex items-center justify-between px-4 pt-safe pb-2 border-b border-zinc-900">
+      <header className="md:hidden flex items-center justify-between px-4 pt-safe pb-2 border-b border-zinc-900 bg-zinc-950/80 backdrop-blur">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-md bg-hawk-400 grid place-items-center">
-            <svg viewBox="0 0 32 32" className="w-4 h-4"><path d="M8 22 L16 8 L24 22 L20 22 L16 16 L12 22 Z" fill="#0a0a0a"/></svg>
+          <div className="w-8 h-8 rounded-md bg-hawk-500 grid place-items-center ring-1 ring-hawk-400/30">
+            <img src={`${import.meta.env.BASE_URL}hawk.svg`} alt="" className="w-5 h-2.5 hawk-white" />
           </div>
-          <span className="font-bold">HawkVentory</span>
+          <div className="leading-tight">
+            <div className="font-bold text-sm">HawkVentory</div>
+            <div className="text-[9px] uppercase tracking-wider text-hawk-400/80">Team 2601</div>
+          </div>
         </div>
         <button onClick={signOut} className="text-xs text-zinc-400">Sign out</button>
       </header>

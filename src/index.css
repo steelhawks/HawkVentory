@@ -1,10 +1,22 @@
 @import "tailwindcss";
 
+/* Steel Hawks brand palette — crimson #830518 from steelhawks.net */
 @theme {
-  --color-hawk-50: #fffbeb;
-  --color-hawk-400: #fbbf24;
-  --color-hawk-500: #f59e0b;
-  --color-hawk-600: #d97706;
+  --color-hawk-50:  #fff1f3;
+  --color-hawk-100: #ffe1e6;
+  --color-hawk-200: #ffc8d0;
+  --color-hawk-300: #ff95a4;
+  --color-hawk-400: #c41230;  /* primary action — bright enough for white text contrast */
+  --color-hawk-500: #830518;  /* brand crimson */
+  --color-hawk-600: #66040f;
+  --color-hawk-700: #4a030b;
+  --color-hawk-800: #2e0207;
+  --color-hawk-900: #1a0104;
+
+  --color-steel-50:  #f7f8fa;
+  --color-steel-100: #eef0f3;
+  --color-steel-400: #8a939e;
+  --color-steel-500: #5d6770;
 }
 
 html, body, #root {
@@ -14,7 +26,15 @@ html, body, #root {
 body {
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
+  background:
+    radial-gradient(1200px 600px at 90% -10%, rgba(131, 5, 24, 0.18), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(131, 5, 24, 0.12), transparent 60%),
+    #0a0a0a;
+  background-attachment: fixed;
 }
+
+/* Tints a black-on-transparent SVG to pure white for dark backgrounds. */
+.hawk-white { filter: brightness(0) invert(1); }
 
 /* Safe-area insets for iOS notch */
 .pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 0.5rem); }

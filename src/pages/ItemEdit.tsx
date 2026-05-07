@@ -122,7 +122,7 @@ export default function ItemEdit() {
 
         <div className="flex gap-2 pt-2">
           <button type="submit" disabled={busy}
-            className="flex-1 py-3 rounded-lg bg-hawk-400 text-zinc-950 font-semibold disabled:opacity-50">
+            className="flex-1 py-3 rounded-lg bg-hawk-500 hover:bg-hawk-400 text-white font-semibold disabled:opacity-50 transition shadow-lg shadow-hawk-900/30">
             {busy ? '…' : isNew ? 'Create' : 'Save'}
           </button>
           {!isNew && (
