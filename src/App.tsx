@@ -7,6 +7,8 @@ import Inventory from './pages/Inventory'
 import ItemEdit from './pages/ItemEdit'
 import MapView from './pages/MapView'
 import Locations from './pages/Locations'
+import Boms from './pages/Boms'
+import BomDetail from './pages/BomDetail'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth()
@@ -57,6 +59,8 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route element={<RequireAuth><Layout /></RequireAuth>}>
           <Route index element={<Inventory />} />
+          <Route path="boms" element={<Boms />} />
+          <Route path="bom/:id" element={<BomDetail />} />
           <Route path="map" element={<MapView />} />
           <Route path="locations" element={<Locations />} />
           <Route path="item/:id" element={<ItemEdit />} />

@@ -16,7 +16,7 @@ export default function ItemEdit() {
   const existing = useMemo(() => items.find((i) => i.id === id), [items, id])
 
   const [form, setForm] = useState<Partial<Item>>({
-    name: '', category: 'tool', quantity: 1, location_id: null, notes: '',
+    name: '', category: 'tool', quantity: 1, location_id: null, notes: '', in_use: false,
   })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -43,6 +43,7 @@ export default function ItemEdit() {
           location_id: form.location_id ?? null,
           notes: form.notes ?? null,
           photo_url: null,
+          in_use: !!form.in_use,
           created_by: user?.id ?? null,
         })
         if (error) throw error
@@ -53,6 +54,7 @@ export default function ItemEdit() {
           quantity: Number(form.quantity ?? 1),
           location_id: form.location_id ?? null,
           notes: form.notes ?? null,
+          in_use: !!form.in_use,
         }).eq('id', id!)
         if (error) throw error
       }
@@ -111,6 +113,21 @@ export default function ItemEdit() {
             ))}
           </select>
         </Field>
+
+        <label className="flex items-center gap-3 px-3 py-3 rounded-lg bg-zinc-900 border border-zinc-800 cursor-pointer">
+          <input type="checkbox" checked={!!form.in_use}
+            onChange={(e) => setForm({ ...form, in_use: e.target.checked })}
+            className="w-5 h-5 rounded border-zinc-700 bg-zinc-950 accent-hawk-500" />
+          <div className="flex-1">
+            <div className="font-medium">In use</div>
+            <div className="text-xs text-zinc-500">Currently installed on the robot or otherwise allocated</div>
+          </div>
+          {form.in_use && (
+            <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-hawk-500/20 text-hawk-300 border border-hawk-500/40">
+              Active
+            </span>
+          )}
+        </label>
 
         <Field label="Notes">
           <textarea rows={3} value={form.notes ?? ''}

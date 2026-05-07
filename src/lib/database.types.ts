@@ -21,8 +21,32 @@ export interface Item {
   location_id: string | null
   notes: string | null
   photo_url: string | null
+  in_use: boolean
   created_at: string
   updated_at: string
   created_by: string | null
+}
+
+export type BomColor = 'crimson' | 'amber' | 'emerald' | 'sky' | 'violet' | 'zinc'
+
+export interface Bom {
+  id: string
+  name: string
+  description: string | null
+  color: BomColor
+  created_at: string
+  updated_at: string
+  created_by: string | null
+}
+
+export interface BomItem {
+  id: string
+  bom_id: string
+  item_id: string | null
+  label: string | null
+  quantity_needed: number
+  notes: string | null
+  sort_order: number
+  created_at: string
 }
 

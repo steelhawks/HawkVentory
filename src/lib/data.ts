@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from './supabase'
-import type { Item, Location, Category } from './database.types'
+import type { Item, Location, Category, Bom, BomItem, BomColor } from './database.types'
 
 export const CATEGORIES: { value: Category; label: string }[] = [
   { value: 'tool',        label: 'Tool' },
@@ -83,4 +83,91 @@ export function rootLocation(id: string | null, all: Location[]): Location | nul
   let safety = 0
   while (cur && cur.parent_id && safety++ < 20) cur = byId.get(cur.parent_id)
   return cur ?? null
+}
+
+/* -------------------------------- BOMs --------------------------------- */
+
+export const BOM_COLORS: { value: BomColor; label: string; chip: string; ring: string }[] = [
+  { value: 'crimson', label: 'Crimson', chip: 'bg-hawk-500/20 text-hawk-300 border-hawk-500/40',     ring: 'ring-hawk-500/50' },
+  { value: 'amber',   label: 'Amber',   chip: 'bg-amber-500/20 text-amber-300 border-amber-500/40',  ring: 'ring-amber-500/50' },
+  { value: 'emerald', label: 'Emerald', chip: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40', ring: 'ring-emerald-500/50' },
+  { value: 'sky',     label: 'Sky',     chip: 'bg-sky-500/20 text-sky-300 border-sky-500/40',        ring: 'ring-sky-500/50' },
+  { value: 'violet',  label: 'Violet',  chip: 'bg-violet-500/20 text-violet-300 border-violet-500/40', ring: 'ring-violet-500/50' },
+  { value: 'zinc',    label: 'Steel',   chip: 'bg-zinc-700/40 text-zinc-300 border-zinc-600/40',     ring: 'ring-zinc-500/50' },
+]
+
+export const bomColorChip = (c: BomColor) => BOM_COLORS.find((x) => x.value === c)?.chip ?? BOM_COLORS[0].chip
+export const bomColorRing = (c: BomColor) => BOM_COLORS.find((x) => x.value === c)?.ring ?? BOM_COLORS[0].ring
+
+export function useBoms() {
+  const [boms, setBoms] = useState<Bom[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const refresh = useCallback(async () => {
+    const { data, error } = await supabase.from('boms').select('*').order('name')
+    if (!error && data) setBoms(data)
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { refresh() }, [refresh])
+
+  useEffect(() => {
+    const ch = supabase
+      .channel('boms-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'boms' }, refresh)
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [refresh])
+
+  return { boms, loading, refresh }
+}
+
+export function useBomItems(bomId: string | null) {
+  const [bomItems, setBomItems] = useState<BomItem[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const refresh = useCallback(async () => {
+    if (!bomId) { setBomItems([]); setLoading(false); return }
+    const { data, error } = await supabase
+      .from('bom_items').select('*').eq('bom_id', bomId).order('sort_order').order('created_at')
+    if (!error && data) setBomItems(data)
+    setLoading(false)
+  }, [bomId])
+
+  useEffect(() => { refresh() }, [refresh])
+
+  useEffect(() => {
+    if (!bomId) return
+    const ch = supabase
+      .channel(`bom-items-${bomId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bom_items', filter: `bom_id=eq.${bomId}` }, refresh)
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [bomId, refresh])
+
+  return { bomItems, loading, refresh }
+}
+
+/** All bom_items across all BOMs — used to compute "which BOMs is this item in?" */
+export function useAllBomItems() {
+  const [bomItems, setBomItems] = useState<BomItem[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const refresh = useCallback(async () => {
+    const { data, error } = await supabase.from('bom_items').select('*')
+    if (!error && data) setBomItems(data)
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { refresh() }, [refresh])
+
+  useEffect(() => {
+    const ch = supabase
+      .channel('bom-items-all-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bom_items' }, refresh)
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [refresh])
+
+  return { bomItems, loading, refresh }
 }

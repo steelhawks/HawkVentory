@@ -3,6 +3,7 @@ import { useAuth } from '../lib/auth'
 
 const navItems = [
   { to: '/',          label: 'Inventory', icon: BoxIcon },
+  { to: '/boms',      label: 'BOMs',      icon: BomIcon },
   { to: '/map',       label: 'Map',       icon: MapIcon },
   { to: '/locations', label: 'Places',    icon: PinIcon },
 ]
@@ -95,6 +96,14 @@ function PinIcon(p: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} {...p}>
       <path d="M12 22s7-7.5 7-13a7 7 0 10-14 0c0 5.5 7 13 7 13z" /><circle cx="12" cy="9" r="2.5" />
+    </svg>
+  )
+}
+function BomIcon(p: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} {...p}>
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <path d="M8 9h8M8 13h8M8 17h5" />
     </svg>
   )
 }
